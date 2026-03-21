@@ -1,269 +1,324 @@
 --[[
-    SHARK MENU V4 - ELITE EDITION
-    Features: Minimize System, Dynamic Dropdowns, Persistent Config, ESP Color Picker
+    SHARK ELITE V5 - PROFESSIONAL EDITION
+    Designed by Professional Standards
+    Universal Mobile/PC Compatibility
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
--- Configuration State (Persistent)
-local SharkConfig = {
-    Fly = false,
-    FlySpeed = 50,
-    Speed = false,
-    WalkSpeedBoost = 0.5,
+-- Configuration & State
+local Config = {
+    Fly = false, FlySpeed = 50,
+    Speed = false, WalkBoost = 50,
     Noclip = false,
-    ESP = false,
-    ESPColor = Color3.fromRGB(0, 180, 255),
-    Aimbot = false
+    ESP = false, ESPColor = Color3.fromRGB(0, 210, 255),
+    Aimbot = false,
+    MenuVisible = true
 }
 
 local Connections = {}
+local UIBlur = nil
 
 -- ==========================================
--- 1. CORE UI SETUP
+-- 1. MODERN UI CONSTRUCTION
 -- ==========================================
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SharkElite"
-ScreenGui.ResetOnSpawn = false
-local success = pcall(function() ScreenGui.Parent = CoreGui end)
-if not success then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+local SharkUI = Instance.new("ScreenGui")
+SharkUI.Name = "SharkElite_V5"
+SharkUI.ResetOnSpawn = false
+SharkUI.DisplayOrder = 100
+local targetParent = (RunService:IsStudio() and LocalPlayer.PlayerGui or CoreGui)
+SharkUI.Parent = targetParent
 
--- Restore Button (The small square when minimized)
-local RestoreBtn = Instance.new("TextButton")
-RestoreBtn.Size = UDim2.new(0, 40, 0, 40)
-RestoreBtn.Position = UDim2.new(0, 20, 0.5, -20)
-RestoreBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
-RestoreBtn.Text = "S"
-RestoreBtn.TextColor3 = Color3.new(1, 1, 1)
-RestoreBtn.Font = Enum.Font.GothamBold
-RestoreBtn.TextSize = 20
-RestoreBtn.Visible = false
-RestoreBtn.Parent = ScreenGui
-Instance.new("UICorner", RestoreBtn).CornerRadius = UDim.new(0, 8)
+-- Utility: Smooth Dragging
+local function MakeDraggable(frame, handle)
+    local dragging, dragInput, dragStart, startPos
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
 
--- Main Frame
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 420, 0, 300)
-MainFrame.Position = UDim2.new(0.5, -210, 0.5, -150)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+-- Main Window
+local MainFrame = Instance.new("CanvasGroup") -- Allows smooth transparency fades
+MainFrame.Size = UDim2.new(0, 450, 0, 320)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -160)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 12, 16)
 MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Parent = ScreenGui
+MainFrame.Parent = SharkUI
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = Color3.fromRGB(0, 210, 255)
+MainStroke.Thickness = 1.5
+MainStroke.Transparency = 0.6
+
+-- Minimize Button (The Floating Square)
+local RestoreBtn = Instance.new("TextButton")
+RestoreBtn.Size = UDim2.new(0, 50, 0, 50)
+RestoreBtn.Position = UDim2.new(0, 50, 0, 50)
+RestoreBtn.BackgroundColor3 = Color3.fromRGB(10, 12, 16)
+RestoreBtn.Text = "S"
+RestoreBtn.TextColor3 = Color3.fromRGB(0, 210, 255)
+RestoreBtn.Font = Enum.Font.GothamBold
+RestoreBtn.TextSize = 24
+RestoreBtn.Visible = false
+RestoreBtn.Parent = SharkUI
+Instance.new("UICorner", RestoreBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", RestoreBtn).Color = Color3.fromRGB(0, 210, 255)
+MakeDraggable(RestoreBtn, RestoreBtn)
 
 -- Header
 local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 40)
-Header.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
+Header.Size = UDim2.new(1, 0, 0, 45)
+Header.BackgroundColor3 = Color3.fromRGB(15, 18, 24)
 Header.Parent = MainFrame
-local HeaderCorner = Instance.new("UICorner", Header)
 
 local Title = Instance.new("TextLabel")
-Title.Text = "  SHARK MENU V4"
-Title.Size = UDim2.new(0.5, 0, 1, 0)
-Title.TextColor3 = Color3.fromRGB(0, 180, 255)
+Title.Text = "SHARK ELITE <font color='#00d2ff'>V5</font>"
+Title.RichText = true
+Title.Size = UDim2.new(1, -50, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
-Title.BackgroundTransparency = 1
+Title.TextSize = 18
 Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.BackgroundTransparency = 1
 Title.Parent = Header
 
-local MinimizeBtn = Instance.new("TextButton")
-MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
-MinimizeBtn.Position = UDim2.new(1, -35, 0.5, -15)
-MinimizeBtn.BackgroundTransparency = 1
-MinimizeBtn.Text = "✕" 
-MinimizeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-MinimizeBtn.TextSize = 18
-MinimizeBtn.Font = Enum.Font.GothamBold
-MinimizeBtn.Parent = Header
+local CloseIcon = Instance.new("TextButton")
+CloseIcon.Size = UDim2.new(0, 30, 0, 30)
+CloseIcon.Position = UDim2.new(1, -40, 0, 7)
+CloseIcon.BackgroundTransparency = 1
+CloseIcon.Text = "—"
+CloseIcon.TextColor3 = Color3.fromRGB(0, 210, 255)
+CloseIcon.TextSize = 20
+CloseIcon.Parent = Header
 
 -- Sidebar
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 110, 1, -40)
-Sidebar.Position = UDim2.new(0, 0, 0, 40)
-Sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+Sidebar.Size = UDim2.new(0, 130, 1, -45)
+Sidebar.Position = UDim2.new(0, 0, 0, 45)
+Sidebar.BackgroundColor3 = Color3.fromRGB(13, 15, 20)
 Sidebar.Parent = MainFrame
 
 local SideLayout = Instance.new("UIListLayout", Sidebar)
-SideLayout.Padding = UDim.new(0, 8)
+SideLayout.Padding = UDim.new(0, 5)
 SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-local SidePadding = Instance.new("UIPadding", Sidebar)
-SidePadding.PaddingTop = UDim.new(0, 10)
+-- Content Container
+local PageContainer = Instance.new("Frame")
+PageContainer.Size = UDim2.new(1, -140, 1, -55)
+PageContainer.Position = UDim2.new(0, 135, 0, 50)
+PageContainer.BackgroundTransparency = 1
+PageContainer.Parent = MainFrame
 
--- Content Area
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -125, 1, -55)
-Content.Position = UDim2.new(0, 120, 0, 50)
-Content.BackgroundTransparency = 1
-Content.Parent = MainFrame
-
-local Tabs = {}
-local function CreateTab(name)
-    local f = Instance.new("ScrollingFrame", Content)
+local Pages = {}
+local function CreatePage(name)
+    local f = Instance.new("ScrollingFrame", PageContainer)
     f.Size = UDim2.new(1, 0, 1, 0)
     f.BackgroundTransparency = 1
     f.Visible = false
+    f.ScrollBarThickness = 2
+    f.ScrollBarImageColor3 = Color3.fromRGB(0, 210, 255)
     f.CanvasSize = UDim2.new(0,0,0,0)
     f.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    f.ScrollBarThickness = 0
-    local l = Instance.new("UIListLayout", f)
-    l.Padding = UDim.new(0, 8)
-    Tabs[name] = f
+    Instance.new("UIListLayout", f).Padding = UDim.new(0, 10)
+    Pages[name] = f
     return f
 end
 
-local HomeTab = CreateTab("Home")
-local MoveTab = CreateTab("Movement")
-local VisTab = CreateTab("Visuals")
-HomeTab.Visible = true
+local Home = CreatePage("Home")
+local Movement = CreatePage("Movement")
+local Visuals = CreatePage("Visuals")
+Home.Visible = true
 
 -- ==========================================
--- 2. HELPER FUNCTIONS (Sliders & Buttons)
+-- 2. PROFESSIONAL COMPONENT FACTORY
 -- ==========================================
 
-local function CreateSlider(parent, label, min, max, default, callback)
-    local SliderFrame = Instance.new("Frame", parent)
-    SliderFrame.Size = UDim2.new(0.95, 0, 0, 45)
-    SliderFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    Instance.new("UICorner", SliderFrame)
+local function CreateSlider(parent, text, min, max, default, callback)
+    local SFrame = Instance.new("Frame", parent)
+    SFrame.Size = UDim2.new(0.95, 0, 0, 50)
+    SFrame.BackgroundColor3 = Color3.fromRGB(20, 24, 30)
+    Instance.new("UICorner", SFrame)
 
-    local Title = Instance.new("TextLabel", SliderFrame)
-    Title.Size = UDim2.new(1, 0, 0, 20)
-    Title.Text = label .. ": " .. default
-    Title.TextColor3 = Color3.new(0.8,0.8,0.8)
-    Title.Font = Enum.Font.Gotham
-    Title.BackgroundTransparency = 1
+    local Lab = Instance.new("TextLabel", SFrame)
+    Lab.Text = "  " .. text .. ": " .. default
+    Lab.Size = UDim2.new(1, 0, 0, 25)
+    Lab.TextColor3 = Color3.new(0.8,0.8,0.8)
+    Lab.Font = Enum.Font.Gotham
+    Lab.TextXAlignment = Enum.TextXAlignment.Left
+    Lab.BackgroundTransparency = 1
 
-    local Bar = Instance.new("Frame", SliderFrame)
-    Bar.Size = UDim2.new(0.8, 0, 0, 4)
-    Bar.Position = UDim2.new(0.1, 0, 0.7, 0)
-    Bar.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    local SliderBar = Instance.new("Frame", SFrame)
+    SliderBar.Size = UDim2.new(0.85, 0, 0, 4)
+    SliderBar.Position = UDim2.new(0.07, 0, 0.7, 0)
+    SliderBar.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
 
-    local Fill = Instance.new("Frame", Bar)
-    Fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
-    Fill.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
+    local Fill = Instance.new("Frame", SliderBar)
+    Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    Fill.BackgroundColor3 = Color3.fromRGB(0, 210, 255)
 
     local function Update(input)
-        local pos = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-        Fill.Size = UDim2.new(pos, 0, 1, 0)
-        local val = math.floor(min + (pos * (max - min)))
-        Title.Text = label .. ": " .. val
+        local size = math.clamp((input.Position.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X, 0, 1)
+        Fill.Size = UDim2.new(size, 0, 1, 0)
+        local val = math.floor(min + (size * (max - min)))
+        Lab.Text = "  " .. text .. ": " .. val
         callback(val)
     end
 
-    Bar.InputBegan:Connect(function(input)
+    SliderBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType.Touch then
-            local con; con = RunService.RenderStepped:Connect(function() Update(input) end)
-            UserInputService.InputEnded:Connect(function(endInput)
-                if endInput.UserInputType == Enum.UserInputType.MouseButton1 or endInput.UserInputType.Touch then con:Disconnect() end
+            local move; move = UserInputService.InputChanged:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType.Touch then Update(i) end
+            end)
+            local release; release = UserInputService.InputEnded:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType.Touch then
+                    move:Disconnect(); release:Disconnect()
+                end
             end)
         end
     end)
 end
 
-local function CreateModule(name, tabs, callback)
-    local function CreateEntry(parent)
+local function CreateToggle(name, tabs, callback)
+    local function AddTo(parent)
         local Container = Instance.new("Frame", parent)
         Container.Size = UDim2.new(0.95, 0, 0, 40)
-        Container.BackgroundTransparency = 1
         Container.AutomaticSize = Enum.AutomaticSize.Y
+        Container.BackgroundTransparency = 1
 
         local Btn = Instance.new("TextButton", Container)
-        Btn.Size = UDim2.new(1, 0, 0, 35)
-        Btn.BackgroundColor3 = SharkConfig[name] and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(30, 30, 35)
-        Btn.Text = name .. (SharkConfig[name] and ": ON" or ": OFF")
-        Btn.TextColor3 = Color3.new(1,1,1)
+        Btn.Size = UDim2.new(1, 0, 0, 38)
+        Btn.BackgroundColor3 = Color3.fromRGB(25, 30, 40)
+        Btn.Text = "  " .. name
+        Btn.TextColor3 = Color3.new(0.7, 0.7, 0.7)
         Btn.Font = Enum.Font.GothamSemibold
+        Btn.TextXAlignment = Enum.TextXAlignment.Left
         Instance.new("UICorner", Btn)
 
-        local Dropdown = Instance.new("Frame", Container)
-        Dropdown.Size = UDim2.new(1, 0, 0, 0)
-        Dropdown.Position = UDim2.new(0, 0, 0, 40)
-        Dropdown.AutomaticSize = Enum.AutomaticSize.Y
-        Dropdown.BackgroundTransparency = 1
-        Dropdown.Visible = SharkConfig[name]
-        Instance.new("UIListLayout", Dropdown).Padding = UDim.new(0, 5)
+        local Status = Instance.new("Frame", Btn)
+        Status.Size = UDim2.new(0, 10, 0, 10)
+        Status.Position = UDim2.new(1, -25, 0.5, -5)
+        Status.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        Instance.new("UICorner", Status).CornerRadius = UDim.new(1, 0)
+
+        local Drop = Instance.new("Frame", Container)
+        Drop.Size = UDim2.new(1, 0, 0, 0)
+        Drop.Position = UDim2.new(0, 0, 0, 42)
+        Drop.AutomaticSize = Enum.AutomaticSize.Y
+        Drop.BackgroundTransparency = 1
+        Drop.Visible = false
+        Instance.new("UIListLayout", Drop).Padding = UDim.new(0, 5)
 
         Btn.MouseButton1Click:Connect(function()
-            SharkConfig[name] = not SharkConfig[name]
-            Btn.Text = name .. (SharkConfig[name] and ": ON" or ": OFF")
-            Btn.BackgroundColor3 = SharkConfig[name] and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(30, 30, 35)
-            Dropdown.Visible = SharkConfig[name]
-            callback(SharkConfig[name])
+            Config[name] = not Config[name]
+            local active = Config[name]
+            TweenService:Create(Status, TweenInfo.new(0.3), {BackgroundColor3 = active and Color3.fromRGB(0, 210, 255) or Color3.fromRGB(50, 50, 50)}):Play()
+            Btn.TextColor3 = active and Color3.new(1,1,1) or Color3.new(0.7,0.7,0.7)
+            Drop.Visible = active
+            callback(active)
         end)
-
-        return Dropdown
+        return Drop
     end
 
-    local d1 = CreateEntry(HomeTab)
-    local d2 = nil
-    for _, tab in pairs(tabs) do d2 = CreateEntry(tab) end
+    local d1 = AddTo(Home)
+    local d2; for _, t in pairs(tabs) do d2 = AddTo(t) end
     return d1, d2
 end
 
 -- ==========================================
--- 3. MODULE IMPLEMENTATION
+-- 3. MODULE LOGIC
 -- ==========================================
 
+-- FLY
+local f1, f2 = CreateToggle("Fly", {Movement}, function(active)
+    if active then
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+        local hum = char:WaitForChild("Humanoid")
+        hum.PlatformStand = true
+        local bv = Instance.new("BodyVelocity", hrp)
+        bv.MaxForce = Vector3.new(1e7, 1e7, 1e7)
+        bv.Name = "SharkDrive"
+        Connections.Fly = RunService.RenderStepped:Connect(function()
+            bv.Velocity = (Camera.CFrame.LookVector * hum.MoveDirection.Z * -Config.FlySpeed) + (Camera.CFrame.RightVector * hum.MoveDirection.X * Config.FlySpeed)
+            hrp.Velocity = Vector3.new(0,0.1,0)
+        end)
+    else
+        if Connections.Fly then Connections.Fly:Disconnect() end
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.Humanoid.PlatformStand = false
+            local b = char.HumanoidRootPart:FindFirstChild("SharkDrive")
+            if b then b:Destroy() end
+        end
+    end
+end)
+CreateSlider(f1, "Fly Speed", 10, 300, 50, function(v) Config.FlySpeed = v end)
+CreateSlider(f2, "Fly Speed", 10, 300, 50, function(v) Config.FlySpeed = v end)
+
 -- SPEED
-local s1, s2 = CreateModule("Speed", {MoveTab}, function(active)
+local s1, s2 = CreateToggle("Speed", {Movement}, function(active)
     if active then
         Connections.Speed = RunService.RenderStepped:Connect(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") and char.Humanoid.MoveDirection.Magnitude > 0 then
-                char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + (char.Humanoid.MoveDirection * SharkConfig.WalkSpeedBoost)
+                char.HumanoidRootPart.CFrame += (char.Humanoid.MoveDirection * (Config.WalkBoost/100))
             end
         end)
     else
         if Connections.Speed then Connections.Speed:Disconnect() end
     end
 end)
-CreateSlider(s1, "Intensity", 1, 10, 5, function(v) SharkConfig.WalkSpeedBoost = v/10 end)
-CreateSlider(s2, "Intensity", 1, 10, 5, function(v) SharkConfig.WalkSpeedBoost = v/10 end)
+CreateSlider(s1, "Speed Power", 10, 200, 50, function(v) Config.WalkBoost = v end)
+CreateSlider(s2, "Speed Power", 10, 200, 50, function(v) Config.WalkBoost = v end)
 
--- FLY
-local f1, f2 = CreateModule("Fly", {MoveTab}, function(active)
+-- NOCLIP
+CreateToggle("Noclip", {Movement}, function(active)
     if active then
-        local hrp = LocalPlayer.Character:WaitForChild("HumanoidRootPart")
-        local hum = LocalPlayer.Character:WaitForChild("Humanoid")
-        hum.PlatformStand = true
-        local bv = Instance.new("BodyVelocity", hrp)
-        bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-        bv.Name = "SharkFly"
-        Connections.Fly = RunService.RenderStepped:Connect(function()
-            bv.Velocity = (Camera.CFrame.LookVector * hum.MoveDirection.Z * -SharkConfig.FlySpeed) + (Camera.CFrame.RightVector * hum.MoveDirection.X * SharkConfig.FlySpeed)
-            hrp.Velocity = Vector3.new(0,0.1,0)
+        Connections.Noclip = RunService.Stepped:Connect(function()
+            if LocalPlayer.Character then
+                for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = false end
+                end
+            end
         end)
     else
-        if Connections.Fly then Connections.Fly:Disconnect() end
-        local char = LocalPlayer.Character
-        if char then
-            char.Humanoid.PlatformStand = false
-            if char.HumanoidRootPart:FindFirstChild("SharkFly") then char.HumanoidRootPart.SharkFly:Destroy() end
-        end
+        if Connections.Noclip then Connections.Noclip:Disconnect() end
     end
 end)
-CreateSlider(f1, "Fly Speed", 10, 200, 50, function(v) SharkConfig.FlySpeed = v end)
-CreateSlider(f2, "Fly Speed", 10, 200, 50, function(v) SharkConfig.FlySpeed = v end)
 
--- ESP & COLOR DROPDOWN
-local e1, e2 = CreateModule("ESP", {VisTab}, function(active)
+-- ESP
+local e1, e2 = CreateToggle("ESP", {Visuals}, function(active)
     if active then
         Connections.ESP = RunService.Heartbeat:Connect(function()
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character then
-                    local hl = p.Character:FindFirstChild("Highlight") or Instance.new("Highlight", p.Character)
-                    hl.FillColor = SharkConfig.ESPColor
+                    local h = p.Character:FindFirstChild("Highlight") or Instance.new("Highlight", p.Character)
+                    h.FillColor = Config.ESPColor
+                    h.OutlineTransparency = 0
                 end
             end
         end)
@@ -275,50 +330,36 @@ local e1, e2 = CreateModule("ESP", {VisTab}, function(active)
     end
 end)
 
-local function CreateColorPicker(parent)
-    local ColorFrame = Instance.new("Frame", parent)
-    ColorFrame.Size = UDim2.new(1, 0, 0, 30)
-    ColorFrame.BackgroundTransparency = 1
-    local l = Instance.new("UIListLayout", ColorFrame)
-    l.FillDirection = Enum.FillDirection.Horizontal
-    l.Padding = UDim.new(0, 5)
-
-    local colors = {Color3.new(1,0,0), Color3.new(0,1,0), Color3.new(0,0.7,1), Color3.new(1,1,1), Color3.new(1,1,0)}
-    for _, col in pairs(colors) do
-        local cbtn = Instance.new("TextButton", ColorFrame)
-        cbtn.Size = UDim2.new(0.18, 0, 1, 0)
-        cbtn.BackgroundColor3 = col
-        cbtn.Text = ""
-        Instance.new("UICorner", cbtn)
-        cbtn.MouseButton1Click:Connect(function() SharkConfig.ESPColor = col end)
+local function AddColorPicker(p)
+    local Grid = Instance.new("Frame", p)
+    Grid.Size = UDim2.new(1, 0, 0, 35)
+    Grid.BackgroundTransparency = 1
+    local gl = Instance.new("UIListLayout", Grid)
+    gl.FillDirection = Enum.FillDirection.Horizontal
+    gl.Padding = UDim.new(0, 5)
+    local colors = {Color3.new(1,0,0), Color3.new(0,1,0), Color3.fromRGB(0,210,255), Color3.new(1,1,1), Color3.new(1,0,1)}
+    for _, c in pairs(colors) do
+        local b = Instance.new("TextButton", Grid)
+        b.Size = UDim2.new(0.18, 0, 1, 0)
+        b.BackgroundColor3 = c
+        b.Text = ""
+        Instance.new("UICorner", b)
+        b.MouseButton1Click:Connect(function() Config.ESPColor = c end)
     end
 end
-CreateColorPicker(e1)
-CreateColorPicker(e2)
+AddColorPicker(e1); AddColorPicker(e2)
 
--- NOCLIP & AIMBOT (Standard)
-CreateModule("Noclip", {MoveTab}, function(active)
-    if active then
-        Connections.Noclip = RunService.Stepped:Connect(function()
-            if LocalPlayer.Character then
-                for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = false end
-                end
-            end
-        end)
-    elseif Connections.Noclip then Connections.Noclip:Disconnect() end
-end)
-
-CreateModule("Aimbot", {VisTab}, function(active)
+-- AIMBOT
+CreateToggle("Aimbot", {Visuals}, function(active)
     if active then
         Connections.Aimbot = RunService.RenderStepped:Connect(function()
-            local target, dist = nil, 500
+            local target, dist = nil, 400
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
                     local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
                     if onScreen then
-                        local mag = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(pos.X, pos.Y)).Magnitude
-                        if mag < dist then dist = mag; target = p end
+                        local mDist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(pos.X, pos.Y)).Magnitude
+                        if mDist < dist then dist = mDist; target = p end
                     end
                 end
             end
@@ -326,65 +367,62 @@ CreateModule("Aimbot", {VisTab}, function(active)
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position)
             end
         end)
-    elseif Connections.Aimbot then Connections.Aimbot:Disconnect() end
+    else
+        if Connections.Aimbot then Connections.Aimbot:Disconnect() end
+    end
 end)
 
 -- ==========================================
--- 4. MINIMIZE & DRAG LOGIC
+-- 4. NAVIGATION & FINAL POLISH
 -- ==========================================
 
-local function ToggleMenu(visible)
-    MainFrame.Visible = visible
-    RestoreBtn.Visible = not visible
-end
-
-MinimizeBtn.MouseButton1Click:Connect(function() ToggleMenu(false) end)
-RestoreBtn.MouseButton1Click:Connect(function() ToggleMenu(true) end)
-
--- Universal Dragging for MainFrame and RestoreBtn
-local function MakeDraggable(obj)
-    local dragStart, startPos, dragging
-    obj.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = input.Position; startPos = obj.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType.Touch then dragging = false end
-    end)
-end
-
-MakeDraggable(Header)
-MakeDraggable(RestoreBtn)
-
--- Sidebar Navigation
-local function SetupNav(name, tab)
+local function SetupNav(name, page)
     local b = Instance.new("TextButton", Sidebar)
-    b.Size = UDim2.new(0.9, 0, 0, 35)
-    b.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    b.Size = UDim2.new(0, 110, 0, 35)
+    b.BackgroundColor3 = Color3.fromRGB(20, 24, 30)
     b.Text = name
-    b.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    b.TextColor3 = Color3.new(0.6, 0.6, 0.6)
     b.Font = Enum.Font.Gotham
     Instance.new("UICorner", b)
+
     b.MouseButton1Click:Connect(function()
-        for _, t in pairs(Tabs) do t.Visible = false end
-        tab.Visible = true
+        for _, p in pairs(Pages) do p.Visible = false end
+        page.Visible = true
+        for _, btn in pairs(Sidebar:GetChildren()) do
+            if btn:IsA("TextButton") then btn.TextColor3 = Color3.new(0.6,0.6,0.6) end
+        end
+        b.TextColor3 = Color3.fromRGB(0, 210, 255)
     end)
 end
 
-SetupNav("Home", HomeTab)
-SetupNav("Movement", MoveTab)
-SetupNav("Visuals", VisTab)
+SetupNav("Home", Home)
+SetupNav("Movement", Movement)
+SetupNav("Visuals", Visuals)
 
--- Toggle with Insert key
+-- Toggle Menu Logic
+local function ToggleUI(state)
+    Config.MenuVisible = state
+    if state then
+        MainFrame.Visible = true
+        TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {GroupTransparency = 0}):Play()
+        RestoreBtn.Visible = false
+    else
+        local t = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {GroupTransparency = 1})
+        t:Play()
+        t.Completed:Connect(function() 
+            if not Config.MenuVisible then 
+                MainFrame.Visible = false 
+                RestoreBtn.Visible = true
+            end 
+        end)
+    end
+end
+
+CloseIcon.MouseButton1Click:Connect(function() ToggleUI(false) end)
+RestoreBtn.MouseButton1Click:Connect(function() ToggleUI(true) end)
 UserInputService.InputBegan:Connect(function(i, g)
-    if not g and i.KeyCode == Enum.KeyCode.Insert then ToggleMenu(not MainFrame.Visible) end
+    if not g and i.KeyCode == Enum.KeyCode.Insert then ToggleUI(not Config.MenuVisible) end
 end)
 
-print("SHARK V4 Loaded. Use 'S' button to restore menu.")
+MakeDraggable(MainFrame, Header)
+print("SHARK ELITE V5 LOADED SUCCESSFULLY")
