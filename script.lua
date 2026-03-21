@@ -1,17 +1,20 @@
 -- ==========================================
--- EDUCATIONAL GUI SCRIPT (Fly, ESP, Speed)
--- Features: Drop-down UI, Sliders, Mobile-friendly
+-- SHARK GUI - PREMIER EDUCATIONAL MENU
+-- Features: Sidebar, Tabs, Anti-Rubberband
+-- Toggle Key: INSERT
 -- ==========================================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 
--- State Variables
+-- State Variables (Persistent)
 local isFlying = false
 local flySpeed = 50
 local flyConnection = nil
@@ -20,296 +23,253 @@ local isESPEnabled = false
 local espHighlights = {}
 
 local isSpeedEnabled = false
-local speedValue = 50 -- Default speed boost
+local speedValue = 50
 local speedConnection = nil
 
 -- ==========================================
--- 1. GUI CREATION & LAYOUT
+-- 1. GUI CONSTRUCTION
 -- ==========================================
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "EducationalMenu"
+ScreenGui.Name = "SharkMenu"
 ScreenGui.ResetOnSpawn = false
-
--- Fallback to PlayerGui if CoreGui is blocked
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 local success = pcall(function() ScreenGui.Parent = CoreGui end)
 if not success then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
--- Main Draggable Frame
+-- Main Container
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 250) -- Increased size to fit everything
-MainFrame.Position = UDim2.new(0.5, -125, 0.5, -125)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 500, 0, 350)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
+MainFrame.Draggable = true -- Standard dragging
 MainFrame.Parent = ScreenGui
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
-UICorner.Parent = MainFrame
+local UICorner_Main = Instance.new("UICorner", MainFrame)
+UICorner_Main.CornerRadius = UDim.new(0, 10)
 
--- Top Bar (Holds Title and Close Button)
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 40)
-TopBar.BackgroundTransparency = 1
-TopBar.Parent = MainFrame
+-- Header Bar
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 45)
+Header.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+Header.Parent = MainFrame
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -40, 1, 0)
-Title.Position = UDim2.new(0, 10, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "Edu Menu"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 20
-Title.Font = Enum.Font.GothamBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TopBar
+local UICorner_Header = Instance.new("UICorner", Header)
+local SharkLabel = Instance.new("TextLabel")
+SharkLabel.Size = UDim2.new(0, 100, 1, 0)
+SharkLabel.Position = UDim2.new(0, 15, 0, 0)
+SharkLabel.BackgroundTransparency = 1
+SharkLabel.Text = "SHARK"
+SharkLabel.TextColor3 = Color3.fromRGB(0, 170, 255)
+SharkLabel.TextSize = 22
+SharkLabel.Font = Enum.Font.GothamBold
+SharkLabel.TextXAlignment = Enum.TextXAlignment.Left
+SharkLabel.Parent = Header
 
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -35, 0, 5)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.Parent = TopBar
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
+-- Sidebar
+local Sidebar = Instance.new("Frame")
+Sidebar.Name = "Sidebar"
+Sidebar.Size = UDim2.new(0, 130, 1, -45)
+Sidebar.Position = UDim2.new(0, 0, 0, 45)
+Sidebar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+Sidebar.Parent = MainFrame
 
--- Container for Buttons (Uses UIListLayout for auto-stacking)
-local ContentFrame = Instance.new("Frame")
-ContentFrame.Size = UDim2.new(1, 0, 1, -40)
-ContentFrame.Position = UDim2.new(0, 0, 0, 40)
-ContentFrame.BackgroundTransparency = 1
-ContentFrame.Parent = MainFrame
+local SidebarLayout = Instance.new("UIListLayout", Sidebar)
+SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+SidebarLayout.Padding = UDim.new(0, 5)
 
-local ListLayout = Instance.new("UIListLayout")
-ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ListLayout.Padding = UDim.new(0, 10)
-ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-ListLayout.Parent = ContentFrame
+-- Tab Container
+local TabContainer = Instance.new("Frame")
+TabContainer.Name = "TabContainer"
+TabContainer.Size = UDim2.new(1, -140, 1, -55)
+TabContainer.Position = UDim2.new(0, 135, 0, 50)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = MainFrame
 
--- Helper function to create buttons
-local function createButton(text, order)
+-- Tab Frames
+local Tabs = {}
+local function CreateTab(name)
+    local Frame = Instance.new("Frame")
+    Frame.Name = name .. "Tab"
+    Frame.Size = UDim2.new(1, 0, 1, 0)
+    Frame.BackgroundTransparency = 1
+    Frame.Visible = false
+    Frame.Parent = TabContainer
+    
+    local Layout = Instance.new("UIListLayout", Frame)
+    Layout.Padding = UDim.new(0, 10)
+    
+    Tabs[name] = Frame
+    return Frame
+end
+
+local HomeTab = CreateTab("Home")
+local MovementTab = CreateTab("Movement")
+local VisualsTab = CreateTab("Visuals")
+HomeTab.Visible = true -- Default
+
+-- ==========================================
+-- 2. SIDEBAR LOGIC
+-- ==========================================
+local function SwitchTab(name)
+    for i, v in pairs(Tabs) do
+        v.Visible = (i == name)
+    end
+end
+
+local function CreateSidebarBtn(text)
     local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(0, 210, 0, 35)
-    Btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    Btn.Size = UDim2.new(0, 110, 0, 35)
+    Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
     Btn.Text = text
-    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     Btn.Font = Enum.Font.GothamSemibold
-    Btn.TextSize = 14
-    Btn.LayoutOrder = order
-    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 8)
-    Btn.Parent = ContentFrame
-    return Btn
+    Btn.Parent = Sidebar
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+    
+    Btn.MouseButton1Click:Connect(function()
+        SwitchTab(text)
+    end)
 end
 
-local FlyBtn = createButton("Fly: OFF", 1)
-local ESPBtn = createButton("ESP: OFF", 2)
-local SpeedBtn = createButton("Speed: OFF", 3)
+CreateSidebarBtn("Home")
+CreateSidebarBtn("Movement")
+CreateSidebarBtn("Visuals")
 
 -- ==========================================
--- 2. SPEED METER (DROP-DOWN SLIDER)
+-- 3. COMPONENT HELPERS
 -- ==========================================
-local SpeedDropdown = Instance.new("Frame")
-SpeedDropdown.Size = UDim2.new(0, 210, 0, 50)
-SpeedDropdown.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-SpeedDropdown.LayoutOrder = 4
-SpeedDropdown.Visible = false -- Hidden by default
-SpeedDropdown.Parent = ContentFrame
-Instance.new("UICorner", SpeedDropdown).CornerRadius = UDim.new(0, 8)
+local function CreateToggleButton(parent, text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0, 340, 0, 40)
+    Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    Btn.Text = text .. ": OFF"
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Font = Enum.Font.Gotham
+    Btn.Parent = parent
+    Instance.new("UICorner", Btn)
 
-local SliderLabel = Instance.new("TextLabel")
-SliderLabel.Size = UDim2.new(1, 0, 0, 20)
-SliderLabel.BackgroundTransparency = 1
-SliderLabel.Text = "Speed Boost: " .. speedValue
-SliderLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-SliderLabel.Font = Enum.Font.Gotham
-SliderLabel.TextSize = 12
-SliderLabel.Parent = SpeedDropdown
-
-local SliderBg = Instance.new("Frame")
-SliderBg.Size = UDim2.new(0, 180, 0, 10)
-SliderBg.Position = UDim2.new(0.5, -90, 0, 25)
-SliderBg.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-SliderBg.Parent = SpeedDropdown
-Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(1, 0)
-
-local SliderFill = Instance.new("Frame")
-SliderFill.Size = UDim2.new(0.5, 0, 1, 0) -- Starts at 50%
-SliderFill.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
-SliderFill.Parent = SliderBg
-Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(1, 0)
-
-local SliderBtn = Instance.new("TextButton")
-SliderBtn.Size = UDim2.new(1, 0, 1, 0)
-SliderBtn.BackgroundTransparency = 1
-SliderBtn.Text = ""
-SliderBtn.Parent = SliderBg
-
--- ==========================================
--- 3. DRAGGING LOGIC (Main GUI)
--- ==========================================
-local dragging, dragInput, dragStart, startPos
-TopBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
-    end
-end)
-TopBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
--- ==========================================
--- 4. SPEED METER SLIDER LOGIC
--- ==========================================
-local sliderDragging = false
-
-local function updateSlider(input)
-    local minSpeed, maxSpeed = 16, 200 -- Standard walkspeed is 16
-    local relativePos = math.clamp((input.Position.X - SliderBg.AbsolutePosition.X) / SliderBg.AbsoluteSize.X, 0, 1)
-    
-    SliderFill.Size = UDim2.new(relativePos, 0, 1, 0)
-    speedValue = math.floor(minSpeed + ((maxSpeed - minSpeed) * relativePos))
-    SliderLabel.Text = "Speed Boost: " .. speedValue
-    
-    -- If speed is currently on, update the player's speed instantly
-    if isSpeedEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = speedValue
-    end
+    local active = false
+    Btn.MouseButton1Click:Connect(function()
+        active = not active
+        Btn.Text = text .. ": " .. (active and "ON" or "OFF")
+        Btn.BackgroundColor3 = active and Color3.fromRGB(0, 120, 200) or Color3.fromRGB(45, 45, 50)
+        callback(active)
+    end)
 end
 
-SliderBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        sliderDragging = true
-        updateSlider(input)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        sliderDragging = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if sliderDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        updateSlider(input)
-    end
-end)
-
 -- ==========================================
--- 5. TOGGLE LOGIC
+-- 4. FEATURES LOGIC (Anti-Rubberband)
 -- ==========================================
 
--- SPEED
-SpeedBtn.MouseButton1Click:Connect(function()
-    isSpeedEnabled = not isSpeedEnabled
-    SpeedBtn.Text = "Speed: " .. (isSpeedEnabled and "ON" or "OFF")
-    SpeedBtn.BackgroundColor3 = isSpeedEnabled and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(50, 50, 55)
-    
-    -- Open/Close Dropdown
-    SpeedDropdown.Visible = isSpeedEnabled
-    
-    -- Adjust MainFrame size based on Dropdown visibility
-    MainFrame.Size = isSpeedEnabled and UDim2.new(0, 250, 0, 310) or UDim2.new(0, 250, 0, 250)
+-- HOME TAB CONTENT
+local Welcome = Instance.new("TextLabel", HomeTab)
+Welcome.Size = UDim2.new(1, 0, 0, 50)
+Welcome.Text = "Welcome to Shark Menu\nPress [INSERT] to hide this menu."
+Welcome.TextColor3 = Color3.fromRGB(200, 200, 200)
+Welcome.BackgroundTransparency = 1
+Welcome.Font = Enum.Font.GothamItalic
 
-    -- Apply Speed Logic
+-- MOVEMENT: SPEED
+CreateToggleButton(MovementTab, "Enhanced Speed", function(state)
+    isSpeedEnabled = state
     if isSpeedEnabled then
-        -- We use a loop because many games constantly try to reset your walkspeed back to 16
         speedConnection = RunService.RenderStepped:Connect(function()
             local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.WalkSpeed = speedValue
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hum and hrp and hum.MoveDirection.Magnitude > 0 then
+                -- CFrame Offset prevents rubber-banding by bypassing walkspeed physics
+                hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (speedValue / 150))
             end
         end)
     else
         if speedConnection then speedConnection:Disconnect() end
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.WalkSpeed = 16 -- Reset to default
-        end
     end
 end)
 
--- FLY
-FlyBtn.MouseButton1Click:Connect(function()
-    isFlying = not isFlying
-    FlyBtn.Text = "Fly: " .. (isFlying and "ON" or "OFF")
-    FlyBtn.BackgroundColor3 = isFlying and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(50, 50, 55)
-
+-- MOVEMENT: FLY
+CreateToggleButton(MovementTab, "Flight Mode", function(state)
+    isFlying = state
     local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = char.HumanoidRootPart
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
 
     if isFlying then
-        local bv = Instance.new("BodyVelocity")
-        bv.Name = "EduFlyPos"
-        bv.MaxForce = Vector3.new(100000, 100000, 100000)
-        bv.Velocity = Vector3.new(0, 0, 0)
-        bv.Parent = hrp
+        hum.PlatformStand = true -- Stops leg physics stretching
+        local bv = Instance.new("BodyVelocity", hrp)
+        bv.Name = "SharkFly"
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        
+        local bg = Instance.new("BodyGyro", hrp)
+        bg.Name = "SharkGyro"
+        bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bg.P = 10000
 
         flyConnection = RunService.RenderStepped:Connect(function()
-            if humanoid and humanoid.Health > 0 then
-                local moveDir = humanoid.MoveDirection
-                if moveDir.Magnitude > 0 then
-                    bv.Velocity = Camera.CFrame.LookVector * (moveDir.Z * -flySpeed) + Camera.CFrame.RightVector * (moveDir.X * flySpeed)
-                    bv.Velocity = Camera.CFrame.LookVector * flySpeed -- Mobile override
-                else
-                    bv.Velocity = Vector3.new(0, 0, 0)
-                end
+            hum:ChangeState(Enum.HumanoidStateType.Physics) -- Anti-Rubberband state
+            local camCF = Camera.CFrame
+            local moveDir = hum.MoveDirection
+            
+            if moveDir.Magnitude > 0 then
+                bv.Velocity = (camCF.LookVector * moveDir.Z * -flySpeed) + (camCF.RightVector * moveDir.X * flySpeed)
+            else
+                bv.Velocity = Vector3.new(0, 0, 0)
             end
+            bg.CFrame = camCF
         end)
     else
         if flyConnection then flyConnection:Disconnect() end
-        if hrp:FindFirstChild("EduFlyPos") then hrp.EduFlyPos:Destroy() end
+        if hrp:FindFirstChild("SharkFly") then hrp.SharkFly:Destroy() end
+        if hrp:FindFirstChild("SharkGyro") then hrp.SharkGyro:Destroy() end
+        hum.PlatformStand = false
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
     end
 end)
 
--- ESP
-ESPBtn.MouseButton1Click:Connect(function()
-    isESPEnabled = not isESPEnabled
-    ESPBtn.Text = "ESP: " .. (isESPEnabled and "ON" or "OFF")
-    ESPBtn.BackgroundColor3 = isESPEnabled and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(50, 50, 55)
-
-    local function applyESP(player)
-        if player == LocalPlayer then return end
-        if player.Character and not espHighlights[player] then
-            local hl = Instance.new("Highlight")
-            hl.FillColor = Color3.fromRGB(255, 0, 0)
-            hl.FillTransparency = 0.5
-            hl.OutlineTransparency = 0
-            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            hl.Parent = player.Character
-            espHighlights[player] = hl
+-- VISUALS: ESP
+CreateToggleButton(VisualsTab, "Player Highlights", function(state)
+    isESPEnabled = state
+    
+    local function addESP(p)
+        if p == LocalPlayer then return end
+        if p.Character then
+            local hl = Instance.new("Highlight", p.Character)
+            hl.FillColor = Color3.fromRGB(0, 170, 255)
+            hl.OutlineColor = Color3.new(1, 1, 1)
+            espHighlights[p] = hl
         end
     end
 
     if isESPEnabled then
-        for _, p in ipairs(Players:GetPlayers()) do applyESP(p) end
+        for _, p in ipairs(Players:GetPlayers()) do addESP(p) end
     else
         for p, hl in pairs(espHighlights) do
             if hl then hl:Destroy() end
-            espHighlights[p] = nil
         end
+        table.clear(espHighlights)
     end
 end)
 
--- CLOSE BUTTON
-CloseBtn.MouseButton1Click:Connect(function()
-    if isFlying then FlyBtn.MouseButton1Click:Fire() end
-    if isESPEnabled then ESPBtn.MouseButton1Click:Fire() end
-    if isSpeedEnabled then SpeedBtn.MouseButton1Click:Fire() end
-    ScreenGui:Destroy()
+-- ==========================================
+-- 5. MENU TOGGLE (INSERT KEY)
+-- ==========================================
+local menuVisible = true
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.Insert then
+        menuVisible = not menuVisible
+        MainFrame.Visible = menuVisible
+    end
 end)
+
+-- Keep features working even when the GUI object is closed
+-- We don't destroy() anything, we just hide the MainFrame. 
+-- The logic stays active in the background.
+
+print("Shark Menu Loaded. Press INSERT to toggle.")
