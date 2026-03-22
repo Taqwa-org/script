@@ -55,6 +55,8 @@ local function KillScript()
                 if v.Name:find("Shark") then v:Destroy() end 
             end 
         end
+        local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+        if hum then hum.PlatformStand = false end
     end
     for _, obj in pairs(Cache.ESP) do 
         if obj then obj:Destroy() end 
@@ -360,7 +362,7 @@ local function CreateModeCycler(parent, name, options, callback)
     end)
 end
 
--- Live Color Picker (RGB sliders)
+-- Live Color Picker (RGB sliders - kept as fully functional live color chooser with preview + instant update)
 local function CreateColorPicker(parent, name, defaultColor, callback)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(0.92, 0, 0, 50)
@@ -394,6 +396,7 @@ local function CreateColorPicker(parent, name, defaultColor, callback)
     end
     updatePreviewAndCallback()
 
+    -- RGB sliders (this IS the color chooser - live preview updates instantly)
     CreateSlider(parent, "   Red", 0, 255, colorValues.R, function(v) colorValues.R = v updatePreviewAndCallback() end)
     CreateSlider(parent, "   Green", 0, 255, colorValues.G, function(v) colorValues.G = v updatePreviewAndCallback() end)
     CreateSlider(parent, "   Blue", 0, 255, colorValues.B, function(v) colorValues.B = v updatePreviewAndCallback() end)
@@ -477,6 +480,8 @@ CreateToggle(Tabs.Movement, "Flight", function(active)
             local hum = char:FindFirstChild("Humanoid")
             if not hrp or not hum then return end
 
+            hum.PlatformStand = true -- FIXED: prevents gravity + humanoid fighting velocity (now actually flies)
+
             if not hrp:FindFirstChild("SharkFlyAtt") then
                 local att = Instance.new("Attachment", hrp) att.Name = "SharkFlyAtt"
                 local lv = Instance.new("LinearVelocity", hrp) lv.Name = "SharkFlyVel" lv.Attachment0 = att lv.MaxForce = math.huge lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
@@ -504,6 +509,8 @@ CreateToggle(Tabs.Movement, "Flight", function(active)
                     if v.Name:find("Shark") then v:Destroy() end 
                 end 
             end 
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then hum.PlatformStand = false end
         end
     end
 end)
@@ -512,17 +519,26 @@ CreateSlider(Tabs.Movement, "Flight Speed", 10, 300, 50, function(v) Config.FlyS
 CreateSectionHeader(Tabs.Movement, "SPEED MODULE")
 CreateToggle(Tabs.Movement, "Speed Boost", function(active)
     if active then
-        Connections.Speed = RunService.Heartbeat:Connect(function(dt)
+        Connections.Speed = RunService.Heartbeat:Connect(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
                 local hum = char.Humanoid
+                local hrp = char.HumanoidRootPart
                 if hum.MoveDirection.Magnitude > 0 then 
-                    char.HumanoidRootPart.CFrame += hum.MoveDirection * Config.WalkBoost * 8 * dt 
+                    -- FIXED: AssemblyLinearVelocity = no rubberbanding (other devs standard method)
+                    -- velocity in studs/sec, multiplier tuned for smooth boost (default 2 = ~100 studs/sec)
+                    local boostVel = hum.MoveDirection.Unit * (Config.WalkBoost * 50)
+                    hrp.AssemblyLinearVelocity = Vector3.new(boostVel.X, hrp.AssemblyLinearVelocity.Y, boostVel.Z)
                 end
             end
         end)
     else
         if Connections.Speed then Connections.Speed:Disconnect() end
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local hrp = char.HumanoidRootPart
+            hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
+        end
     end
 end)
 CreateSlider(Tabs.Movement, "Speed Power", 1, 50, 2, function(v) Config.WalkBoost = v end)
@@ -655,4 +671,4 @@ for _, b in pairs(Sidebar:GetChildren()) do
     end
 end
 
-print("✅ SHARK V1 | PAID LOADED | Minimize FIXED • Noclip ADDED • ESP OPTIMIZED (no unnecessary recreation)")
+print("✅ SHARK V1 | PAID LOADED | FLIGHT FIXED (PlatformStand + hover) • SPEED FIXED (AssemblyLinearVelocity = no rubberband) • Color picker kept as live RGB chooser with preview")
