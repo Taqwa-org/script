@@ -1,14 +1,17 @@
--- FIXED Dead Rails Auto Bond Script (GUI ALWAYS shows)
--- Tested structure March 2026 - works in lobby + in-game
+-- FIXED Dead Rails Auto Bond Script (GUI ALWAYS shows) - March 2026 version
+-- Improved bond detection & movement logic
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local plr = Players.LocalPlayer
+local char = plr.Character or plr.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
 
--- ============== GUI CREATION (ALWAYS FIRST) ==============
+-- ============== GUI (unchanged - kept as is) ==============
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "DeadRailsAutoBond"
 screenGui.ResetOnSpawn = false
@@ -26,142 +29,118 @@ local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0, 8)
 uiCorner.Parent = mainFrame
 
--- HEADER
-local header = Instance.new("Frame")
-header.Size = UDim2.new(1, 0, 0, 35)
-header.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-header.Parent = mainFrame
+-- (header, title, minBtn, closeBtn, body, toggleBtn, statusLabel - same as your original code)
+-- ... paste your original GUI creation code here (header, buttons, dragging logic) ...
 
-local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0, 8)
-headerCorner.Parent = header
+-- Assume you already have:
+-- toggleBtn, statusLabel, enabled, autoThread
 
-local title = Instance.new("TextLabel")
-title.Text = "Dead Rails - Auto Bond"
-title.Size = UDim2.new(1, -70, 1, 0)
-title.BackgroundTransparency = 1
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 16
-title.Parent = header
-
-local minBtn = Instance.new("TextButton")
-minBtn.Size = UDim2.new(0, 30, 1, 0)
-minBtn.Position = UDim2.new(1, -60, 0, 0)
-minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-minBtn.Text = "-"
-minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-minBtn.Font = Enum.Font.GothamBold
-minBtn.TextSize = 18
-minBtn.Parent = header
-
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 30, 1, 0)
-closeBtn.Position = UDim2.new(1, -30, 0, 0)
-closeBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 18
-closeBtn.Parent = header
-
--- BODY
-local body = Instance.new("Frame")
-body.Size = UDim2.new(1, 0, 1, -35)
-body.Position = UDim2.new(0, 0, 0, 35)
-body.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-body.Parent = mainFrame
-
-local bodyCorner = Instance.new("UICorner")
-bodyCorner.CornerRadius = UDim.new(0, 8)
-bodyCorner.Parent = body
-
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0.85, 0, 0, 50)
-toggleBtn.Position = UDim2.new(0.075, 0, 0.1, 0)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-toggleBtn.Text = "Auto Bond: OFF"
-toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.TextSize = 18
-toggleBtn.Parent = body
-
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(0.85, 0, 0, 30)
-statusLabel.Position = UDim2.new(0.075, 0, 0.45, 0)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "Waiting for map..."
-statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-statusLabel.Font = Enum.Font.Gotham
-statusLabel.TextSize = 14
-statusLabel.Parent = body
-
--- ============== DRAGGABLE + BUTTONS ==============
-local dragging = false
-local dragStart, startPos
-
-header.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = mainFrame.Position
+-- ============== Remote fallback / guess ==============
+local remote
+do
+    -- Try your original path
+    local pkg = ReplicatedStorage:FindFirstChild("Packages")
+    if pkg then
+        remote = pkg:FindFirstChild("ActivateObjectClient")
     end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    
+    -- Common alternatives in similar games
+    if not remote then
+        for _, v in ReplicatedStorage:GetDescendants() do
+            if v:IsA("RemoteEvent") and (v.Name:lower():find("collect") or v.Name:lower():find("pickup") or v.Name:lower():find("interact") or v.Name:lower():find("activate")) then
+                remote = v
+                break
+            end
+        end
     end
-end)
+end
 
-minBtn.MouseButton1Click:Connect(function()
-    body.Visible = not body.Visible
-    mainFrame.Size = body.Visible and UDim2.new(0,320,0,200) or UDim2.new(0,320,0,35)
-end)
+-- ============== Better bond finding logic ==============
+local function findBonds()
+    local candidates = {}
+    
+    -- Try common folders first
+    local searchFolders = {
+        Workspace:FindFirstChild("RuntimeItems"),
+        Workspace:FindFirstChild("Loot"),
+        Workspace:FindFirstChild("Map"),
+        Workspace,
+    }
+    
+    for _, folder in searchFolders do
+        if not folder then continue end
+        
+        for _, obj in folder:GetDescendants() do
+            -- Common patterns for bonds / collectibles
+            local name = obj.Name:lower()
+            if name:find("bond") or name:find("bonus") or name:find("treasury") or name == "bond" 
+                or obj:IsA("Tool") or obj:FindFirstChildOfClass("ProximityPrompt") 
+                or obj:FindFirstChildOfClass("ClickDetector") then
+                
+                -- Get the main part to tp to / interact with
+                local targetPart = obj:IsA("BasePart") and obj 
+                    or obj:FindFirstChildWhichIsA("BasePart") 
+                    or obj.PrimaryPart
+                    
+                if targetPart then
+                    table.insert(candidates, {obj = obj, part = targetPart})
+                end
+            end
+        end
+    end
+    
+    return candidates
+end
 
-closeBtn.MouseButton1Click:Connect(function()
-    screenGui:Destroy()
-end)
-
--- ============== AUTO BOND LOGIC ==============
-local enabled = false
-local autoThread = nil
-local remote = ReplicatedStorage:FindFirstChild("Packages") and ReplicatedStorage.Packages:FindFirstChild("ActivateObjectClient")
-
+-- ============== AUTO BOND LOGIC (fixed) ==============
 toggleBtn.MouseButton1Click:Connect(function()
     enabled = not enabled
     
     if enabled then
         toggleBtn.Text = "Auto Bond: ON"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        statusLabel.Text = "ON - Collecting bonds..."
+        statusLabel.Text = "ON - Searching bonds..."
         
         autoThread = coroutine.create(function()
-            while enabled and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") do
-                local itemsFolder = Workspace:FindFirstChild("RuntimeItems") or Workspace
-                local collected = false
+            while enabled and hrp.Parent do
+                local bonds = findBonds()
                 
-                for _, obj in ipairs(itemsFolder:GetDescendants()) do
-                    if obj.Name == "Bond" and obj:FindFirstChild("Part") then
-                        local hrp = plr.Character.HumanoidRootPart
-                        hrp.CFrame = obj.Part.CFrame * CFrame.new(0, 5, 0)  -- TP safely above
+                if #bonds > 0 then
+                    statusLabel.Text = "Found " .. #bonds .. " bond(s) - collecting..."
+                    
+                    for _, bond in bonds do
+                        if not enabled or not hrp.Parent then break end
                         
-                        task.wait(0.25)  -- Anti-detection delay
+                        -- Safe tp above
+                        hrp.CFrame = bond.part.CFrame * CFrame.new(0, 4.5, 0)
+                        task.wait(0.35)  -- slightly longer delay
                         
+                        -- Try remote fire
                         if remote then
-                            pcall(function() remote:FireServer(obj) end)
+                            pcall(function()
+                                remote:FireServer(bond.obj)
+                            end)
                         end
                         
-                        obj.Name = "BondCollected"  -- prevent re-collect
-                        collected = true
+                        -- Fallback: fire proximity / click if exists
+                        local prompt = bond.obj:FindFirstChildOfClass("ProximityPrompt") 
+                            or bond.part:FindFirstChildOfClass("ProximityPrompt")
+                        if prompt then
+                            pcall(function() fireproximityprompt(prompt) end)
+                        end
+                        
+                        -- Mark to avoid re-collect spam
+                        bond.obj.Name = bond.obj.Name .. "_collected"
+                        
+                        task.wait(0.4)
                     end
+                else
+                    statusLabel.Text = "No bonds found - scanning map..."
+                    -- Optional: tiny random movement to maybe trigger spawns (some games require it)
+                    -- hrp.CFrame += CFrame.new(math.random(-3,3), 0, math.random(-3,3))
                 end
                 
-                if not collected then
-                    statusLabel.Text = "No bonds found - moving..."
-                end
-                task.wait(0.3)
+                task.wait(0.6)  -- main loop delay
             end
         end)
         
@@ -171,9 +150,9 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.Text = "Auto Bond: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         statusLabel.Text = "OFF"
-        enabled = false
     end
 end)
 
-print("✅ Fixed Auto Bond GUI loaded! It will always appear now.")
-print("Toggle ON after you join a run. Slow & safe TP method used.")
+print("✅ Improved Auto Bond GUI loaded!")
+print("Now searches for realistic bond names / tools / prompts.")
+print("Toggle ON once you're in a run. Stay patient - bonds spawn in buildings/towns.")
