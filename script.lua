@@ -1,9 +1,10 @@
 -- FIXED Dead Rails Auto Bond Script
--- Added Tweening (Anti-Rubberband), Noclip, and Instant Collect
+-- 1. Strict Bond Targeting (No more flying to random map parts)
+-- 2. Ghost Mode (No damage while flying)
+-- 3. Instant Proximity Firing
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
@@ -21,9 +22,7 @@ end)
 
 -- ============== GUI CREATION ==============
 local existingGui = plr:WaitForChild("PlayerGui"):FindFirstChild("DeadRailsAutoBond") or CoreGui:FindFirstChild("DeadRailsAutoBond")
-if existingGui then
-    existingGui:Destroy()
-end
+if existingGui then existingGui:Destroy() end
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "DeadRailsAutoBond"
@@ -32,7 +31,6 @@ local success = pcall(function() screenGui.Parent = CoreGui end)
 if not success then screenGui.Parent = plr:WaitForChild("PlayerGui") end
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 320, 0, 180)
 mainFrame.Position = UDim2.new(0.5, -160, 0.5, -90)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
@@ -44,7 +42,7 @@ local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0, 8)
 uiCorner.Parent = mainFrame
 
--- Smooth Dragging Logic
+-- Smooth Dragging
 local dragging, dragInput, dragStart, startPos
 mainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -52,16 +50,12 @@ mainFrame.InputBegan:Connect(function(input)
         dragStart = input.Position
         startPos = mainFrame.Position
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
     end
 end)
 mainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
 end)
 UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
@@ -70,64 +64,51 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Header
+-- Header & Buttons
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 35)
 header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 header.Parent = mainFrame
-local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0, 8)
-headerCorner.Parent = header
-local headerBottomCover = Instance.new("Frame")
-headerBottomCover.Size = UDim2.new(1, 0, 0, 8)
-headerBottomCover.Position = UDim2.new(0, 0, 1, -8)
-headerBottomCover.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-headerBottomCover.BorderSizePixel = 0
-headerBottomCover.Parent = header
+Instance.new("UICorner", header).CornerRadius = UDim.new(0, 8)
+local hCover = Instance.new("Frame", header)
+hCover.Size = UDim2.new(1, 0, 0, 8)
+hCover.Position = UDim2.new(0, 0, 1, -8)
+hCover.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+hCover.BorderSizePixel = 0
 
-local title = Instance.new("TextLabel")
+local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(0.6, 0, 1, 0)
 title.Position = UDim2.new(0.05, 0, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "Dead Rails Fast Auto Bond"
+title.Text = "Dead Rails FAST Auto Bond"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 16
 title.Font = Enum.Font.GothamBold
 title.TextXAlignment = Enum.TextXAlignment.Left
-title.Parent = header
 
-local closeBtn = Instance.new("TextButton")
+local closeBtn = Instance.new("TextButton", header)
 closeBtn.Size = UDim2.new(0, 25, 0, 25)
 closeBtn.Position = UDim2.new(1, -30, 0.5, -12.5)
 closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 closeBtn.Text = "X"
 closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeBtn.Font = Enum.Font.GothamBold
-closeBtn.Parent = header
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 6)
-closeCorner.Parent = closeBtn
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
 
-local minBtn = Instance.new("TextButton")
+local minBtn = Instance.new("TextButton", header)
 minBtn.Size = UDim2.new(0, 25, 0, 25)
 minBtn.Position = UDim2.new(1, -60, 0.5, -12.5)
 minBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 minBtn.Text = "-"
 minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 minBtn.Font = Enum.Font.GothamBold
-minBtn.Parent = header
-local minCorner = Instance.new("UICorner")
-minCorner.CornerRadius = UDim.new(0, 6)
-minCorner.Parent = minBtn
+Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 6)
 
--- Body Container
-local body = Instance.new("Frame")
+local body = Instance.new("Frame", mainFrame)
 body.Size = UDim2.new(1, 0, 1, -35)
 body.Position = UDim2.new(0, 0, 0, 35)
 body.BackgroundTransparency = 1
-body.Parent = mainFrame
 
-local toggleBtn = Instance.new("TextButton")
+local toggleBtn = Instance.new("TextButton", body)
 toggleBtn.Size = UDim2.new(0.8, 0, 0, 40)
 toggleBtn.Position = UDim2.new(0.1, 0, 0.25, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
@@ -135,12 +116,9 @@ toggleBtn.Text = "Auto Bond: OFF"
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.Font = Enum.Font.GothamBold
 toggleBtn.TextSize = 16
-toggleBtn.Parent = body
-local toggleCorner = Instance.new("UICorner")
-toggleCorner.CornerRadius = UDim.new(0, 6)
-toggleCorner.Parent = toggleBtn
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
 
-local statusLabel = Instance.new("TextLabel")
+local statusLabel = Instance.new("TextLabel", body)
 statusLabel.Size = UDim2.new(0.9, 0, 0, 30)
 statusLabel.Position = UDim2.new(0.05, 0, 0.65, 0)
 statusLabel.BackgroundTransparency = 1
@@ -148,84 +126,69 @@ statusLabel.Text = "Status: Idle"
 statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 statusLabel.Font = Enum.Font.Gotham
 statusLabel.TextSize = 14
-statusLabel.Parent = body
 
--- State variables
+-- ============== STATE VARIABLES ==============
 local enabled = false
 local autoThread = nil
 local minimized = false
 local isMoving = false
-local TWEEN_SPEED = 250 -- Studs per second. High enough to be fast, low enough to bypass anticheat.
+local currentTween = nil
+local TWEEN_SPEED = 140 -- Safe speed to avoid anti-cheat kicks
 
--- GUI Click Logic
-closeBtn.MouseButton1Click:Connect(function()
-    enabled = false
-    screenGui:Destroy()
-end)
-
+-- GUI Clicks
+closeBtn.MouseButton1Click:Connect(function() enabled = false screenGui:Destroy() end)
 minBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
-        body.Visible = false
-        mainFrame.Size = UDim2.new(0, 320, 0, 35)
-        minBtn.Text = "+"
+        body.Visible = false mainFrame.Size = UDim2.new(0, 320, 0, 35) minBtn.Text = "+"
     else
-        body.Visible = true
-        mainFrame.Size = UDim2.new(0, 320, 0, 180)
-        minBtn.Text = "-"
+        body.Visible = true mainFrame.Size = UDim2.new(0, 320, 0, 180) minBtn.Text = "-"
     end
 end)
 
--- ============== NOCLIP (Only active when moving to bond) ==============
-RunService.Stepped:Connect(function()
-    if enabled and isMoving and char then
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
-            end
-        end
-    end
-end)
-
--- ============== Remote fallback / guess ==============
-local remote
-do
-    local pkg = ReplicatedStorage:FindFirstChild("Packages")
-    if pkg then remote = pkg:FindFirstChild("ActivateObjectClient") end
-    if not remote then
-        for _, v in ReplicatedStorage:GetDescendants() do
-            if v:IsA("RemoteEvent") and (v.Name:lower():find("collect") or v.Name:lower():find("pickup") or v.Name:lower():find("interact") or v.Name:lower():find("activate")) then
-                remote = v
-                break
-            end
+-- ============== GHOST MODE (Prevents Damage & Sticking) ==============
+local function setTouch(state)
+    if not char then return end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanTouch = state -- Disables touching kill bricks / damage scripts
         end
     end
 end
 
--- ============== Better bond finding logic ==============
+RunService.Stepped:Connect(function()
+    if enabled and isMoving and char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+        if hrp then
+            hrp.Velocity = Vector3.new(0, 0, 0) -- Stop fall damage
+            hrp.RotVelocity = Vector3.new(0, 0, 0)
+        end
+    end
+end)
+
+-- ============== STRICT BOND FINDING ==============
 local function findBonds()
     local candidates = {}
-    local searchFolders = {
-        Workspace:FindFirstChild("RuntimeItems"),
-        Workspace:FindFirstChild("Loot"),
-        Workspace:FindFirstChild("Map"),
-        Workspace,
-    }
-    
-    for _, folder in searchFolders do
-        if not folder then continue end
-        for _, obj in folder:GetDescendants() do
-            local name = obj.Name:lower()
-            if name:find("bond") or name:find("bonus") or name:find("treasury") or name == "bond" 
-                or obj:IsA("Tool") or obj:FindFirstChildOfClass("ProximityPrompt") 
-                or obj:FindFirstChildOfClass("ClickDetector") then
+    -- Only look for actual interactable prompts to prevent flying to fake map parts
+    for _, prompt in pairs(Workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") then
+            local obj = prompt.Parent
+            if obj then
+                local name = obj.Name:lower()
+                local action = prompt.ActionText:lower()
+                local objectName = prompt.ObjectText:lower()
                 
-                local targetPart = obj:IsA("BasePart") and obj 
-                    or obj:FindFirstChildWhichIsA("BasePart") 
-                    or obj.PrimaryPart
+                -- Check if it actually looks like a loot/bond
+                if name:find("bond") or name:find("bonus") or action:find("collect") or action:find("pickup") or action:find("search") or action:find("take") or objectName:find("bond") then
                     
-                if targetPart then
-                    table.insert(candidates, {obj = obj, part = targetPart})
+                    local targetPart = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart") or obj.PrimaryPart
+                    if targetPart then
+                        table.insert(candidates, {obj = obj, part = targetPart, prompt = prompt})
+                    end
                 end
             end
         end
@@ -233,24 +196,35 @@ local function findBonds()
     return candidates
 end
 
--- ============== TWEEN FUNCTION (Anti-Cheat Bypass) ==============
-local function tweenTo(targetCFrame)
-    if not hrp or not hrp.Parent then return end
+-- ============== TWEEN FUNCTION ==============
+local function tweenTo(targetPart)
+    if not hrp or not targetPart then return false end
     
-    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    local distance = (hrp.Position - targetPart.Position).Magnitude
     local timeToTake = distance / TWEEN_SPEED
-    if timeToTake < 0.1 then timeToTake = 0.1 end -- Ensure a minimum tween time
+    if timeToTake < 0.1 then timeToTake = 0.1 end
     
     local tweenInfo = TweenInfo.new(timeToTake, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+    -- Tween directly to the part
+    currentTween = TweenService:Create(hrp, tweenInfo, {CFrame = targetPart.CFrame})
     
     isMoving = true
-    hrp.Anchored = true -- Anchor to prevent gravity/anticheat dragging you down
+    hrp.Anchored = true
+    setTouch(false) -- Activate ghost mode
     
-    tween:Play()
-    tween.Completed:Wait()
+    currentTween:Play()
     
-    isMoving = false
+    -- Wait until completed or target disappears
+    local start = tick()
+    while tick() - start < timeToTake do
+        if not targetPart or not targetPart.Parent then
+            currentTween:Cancel()
+            break
+        end
+        task.wait(0.1)
+    end
+    
+    return true
 end
 
 -- ============== AUTO BOND LOGIC ==============
@@ -260,52 +234,55 @@ toggleBtn.MouseButton1Click:Connect(function()
     if enabled then
         toggleBtn.Text = "Auto Bond: ON"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        statusLabel.Text = "ON - Searching bonds..."
         
         autoThread = coroutine.create(function()
             while enabled do
-                if not hrp or not hrp.Parent then
-                    task.wait(1)
-                    continue
-                end
+                if not hrp or not hrp.Parent then task.wait(1) continue end
                 
                 local bonds = findBonds()
                 
                 if #bonds > 0 then
-                    statusLabel.Text = "Tweening to " .. #bonds .. " bond(s)..."
+                    statusLabel.Text = "Collecting " .. #bonds .. " confirmed bond(s)..."
                     
                     for _, bond in bonds do
                         if not enabled or not hrp or not hrp.Parent then break end
+                        if not bond.part or not bond.part.Parent then continue end
                         
-                        -- Smoothly fly to the bond (No TP back)
-                        tweenTo(bond.part.CFrame * CFrame.new(0, 3.5, 0))
+                        -- Smooth fly
+                        tweenTo(bond.part)
                         
-                        -- FIRE IMMEDIATELY (Fast collect)
-                        if remote then
-                            pcall(function() remote:FireServer(bond.obj) end)
+                        -- FAST INSTANT COLLECT
+                        if bond.prompt then
+                            bond.prompt.RequiresLineOfSight = false
+                            bond.prompt.MaxActivationDistance = 50
+                            bond.prompt.HoldDuration = 0
+                            
+                            -- Fire it twice to ensure server registers it
+                            pcall(function() fireproximityprompt(bond.prompt) end)
+                            task.wait(0.05)
+                            pcall(function() fireproximityprompt(bond.prompt) end)
                         end
                         
-                        local prompt = bond.obj:FindFirstChildOfClass("ProximityPrompt") or bond.part:FindFirstChildOfClass("ProximityPrompt")
-                        if prompt then
-                            prompt.HoldDuration = 0 -- Bypass hold time
-                            pcall(function() fireproximityprompt(prompt) end)
+                        -- Mark to avoid repeating
+                        if bond.obj then
+                            bond.obj.Name = bond.obj.Name .. "_collected"
+                            -- Safely destroy the prompt so it removes from our scan queue
+                            if bond.prompt then bond.prompt:Destroy() end
                         end
-                        
-                        -- Rename to stop it from targeting the same bond repeatedly
-                        bond.obj.Name = bond.obj.Name .. "_collected"
-                        
-                        -- Extremely short wait just to let the server register
-                        task.wait(0.05) 
                     end
                     
-                    -- Unanchor when done with the queue so you can move normally again
+                    -- Reset character state
                     if hrp then hrp.Anchored = false end
+                    setTouch(true)
+                    isMoving = false
                 else
                     if hrp then hrp.Anchored = false end
+                    setTouch(true)
+                    isMoving = false
                     statusLabel.Text = "No bonds found - scanning map..."
                 end
                 
-                task.wait(0.2)  -- Faster loop delay
+                task.wait(0.5) -- Scan interval
             end
         end)
         
@@ -315,7 +292,10 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.Text = "Auto Bond: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         statusLabel.Text = "Status: Idle"
+        
+        if currentTween then currentTween:Cancel() end
         isMoving = false
         if hrp then hrp.Anchored = false end
+        setTouch(true)
     end
 end)
