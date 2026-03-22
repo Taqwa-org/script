@@ -1,5 +1,5 @@
--- Dead Rails: "Drone Scout & Ghost TP" Utility
--- Explores the map with an undetectable Freecam, then Force-Teleports to load chunks and loot.
+-- Dead Rails: "Quantum Blink & Drone Scout" Utility
+-- Explores with Freecam -> Uses Flicker TP to force-load chunks and bypass rubberbands!
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -25,7 +25,7 @@ if not success then screenGui.Parent = plr:WaitForChild("PlayerGui") end
 
 -- MAIN FRAME
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 320, 0, 260) -- Taller to fit 4 buttons
+mainFrame.Size = UDim2.new(0, 320, 0, 260)
 mainFrame.Position = UDim2.new(0.5, -160, 0.2, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
@@ -70,10 +70,10 @@ local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(0.6, 0, 1, 0)
 title.Position = UDim2.new(0.05, 0, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "Dead Rails Drone Scout"
+title.Text = "Dead Rails Quantum Loot"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
-title.TextSize = 15
+title.TextSize = 14
 title.TextXAlignment = Enum.TextXAlignment.Left
 
 -- CLOSE & MINIMIZE BUTTONS
@@ -118,17 +118,17 @@ local function createButton(yOffset, defaultText, color)
     btn.Text = defaultText
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 14
+    btn.TextSize = 13
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     return btn
 end
 
 local droneBtn = createButton(15, "Drone Scout (Freecam): OFF")
-local forceTpBtn = createButton(65, "⚡ Force TP & Load Here", Color3.fromRGB(200, 120, 30))
+local forceTpBtn = createButton(65, "⚡ Quantum Blink & Loot", Color3.fromRGB(200, 120, 30))
 local fullbrightBtn = createButton(115, "True Fullbright: OFF")
 local auraBtn = createButton(165, "Auto Collect: OFF")
 
--- ============== MOBILE FLY CONTROLS ==============
+-- ============== MOBILE DRONE CONTROLS ==============
 local mobileFlyUI = Instance.new("Frame", screenGui)
 mobileFlyUI.Size = UDim2.new(0, 60, 0, 130)
 mobileFlyUI.Position = UDim2.new(1, -80, 0.5, -65)
@@ -158,10 +158,10 @@ upBtn.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.To
 downBtn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = true end end)
 downBtn.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = false end end)
 
--- ============== DRONE SCOUT LOGIC (UNDETECTABLE) ==============
+-- ============== DRONE SCOUT LOGIC ==============
 local droning = false
 local dronePart = nil
-local droneSpeed = 150 -- Super fast speed!
+local droneSpeed = 150 
 local droneConnection
 
 droneBtn.MouseButton1Click:Connect(function()
@@ -175,9 +175,11 @@ droneBtn.MouseButton1Click:Connect(function()
         if UserInputService.TouchEnabled then mobileFlyUI.Visible = true end
         
         -- Lock real character in place safely
-        if hrp then hrp.Anchored = true end
+        if hrp then 
+            hrp.Anchored = true 
+            hrp.Velocity = Vector3.new(0,0,0)
+        end
         
-        -- Create invisible drone
         dronePart = Instance.new("Part")
         dronePart.Size = Vector3.new(1, 1, 1)
         dronePart.Transparency = 1
@@ -186,7 +188,6 @@ droneBtn.MouseButton1Click:Connect(function()
         if hrp then dronePart.CFrame = hrp.CFrame end
         dronePart.Parent = Workspace
         
-        -- Attach camera to drone natively (allows mobile swiping/mouse look to work)
         cam.CameraSubject = dronePart
         
         droneConnection = RunService.RenderStepped:Connect(function(dt)
@@ -198,15 +199,12 @@ droneBtn.MouseButton1Click:Connect(function()
                 moveVector = controlModule:GetMoveVector()
             end)
             
-            -- Move relative to where the camera is looking
             local flyDir = (cam.CFrame.RightVector * moveVector.X) + (cam.CFrame.LookVector * -moveVector.Z)
             
             if UserInputService:IsKeyDown(Enum.KeyCode.Space) or upPressed then flyDir = flyDir + Vector3.new(0, 1, 0) end
             if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or downPressed then flyDir = flyDir - Vector3.new(0, 1, 0) end
             
             if flyDir.Magnitude > 0 then flyDir = flyDir.Unit end
-            
-            -- Move the invisible drone
             dronePart.Position = dronePart.Position + (flyDir * droneSpeed * dt)
         end)
     else
@@ -218,34 +216,86 @@ droneBtn.MouseButton1Click:Connect(function()
         if droneConnection then droneConnection:Disconnect() end
         if dronePart then dronePart:Destroy() end
         
-        -- Reset camera back to character
         if humanoid then cam.CameraSubject = humanoid end
         if hrp then hrp.Anchored = false end
     end
 end)
 
--- ============== GHOST LOAD & TP (YOUR IDEA) ==============
+-- ============== QUANTUM BLINK & LOOT LOGIC ==============
+local isQuantumLooting = false
+
 forceTpBtn.MouseButton1Click:Connect(function()
-    if not hrp then return end
+    if not hrp or isQuantumLooting then return end
     
-    -- Teleport to the drone (or current camera if drone is off)
-    local targetCFrame = dronePart and dronePart.CFrame or Workspace.CurrentCamera.CFrame
-    
-    forceTpBtn.Text = "LOADING CHUNKS..."
+    isQuantumLooting = true
+    forceTpBtn.Text = "FLICKERING & LOOTING..."
     forceTpBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
     
-    -- The Anti-Rubberband Spam
-    -- Teleports you 30 times in 1.5 seconds. The server tries to rubberband you, 
-    -- but your client says "NO, I am here" repeatedly until the server gives up 
-    -- and successfully loads the vault/bonds.
-    task.spawn(function()
-        for i = 1, 30 do
-            if not hrp or not hrp.Parent then break end
-            hrp.CFrame = targetCFrame
-            hrp.Velocity = Vector3.new(0,0,0)
-            task.wait(0.05)
+    -- Where are we, and where are we looting?
+    local safeCF = hrp.CFrame
+    local targetCF = dronePart and dronePart.CFrame or Workspace.CurrentCamera.CFrame
+    
+    -- Force Roblox to stream the target area chunks immediately
+    pcall(function() plr:RequestStreamAroundAsync(targetCF.Position) end)
+    
+    -- Ensure player is unanchored so physics update, but immune to damage
+    hrp.Anchored = false
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then part.CanTouch = false end
+    end
+    
+    local tickCount = 0
+    -- The Flicker Loop: Swaps position every single frame
+    local flickerConn = RunService.Heartbeat:Connect(function()
+        tickCount = tickCount + 1
+        if tickCount % 2 == 0 then
+            hrp.CFrame = targetCF -- Trigger loot spawn
+        else
+            hrp.CFrame = safeCF   -- Satisfy anti-cheat
         end
-        forceTpBtn.Text = "⚡ Force TP & Load Here"
+        hrp.Velocity = Vector3.new(0, 0, 0)
+    end)
+    
+    -- While flickering, aggressively scan the target area for loot
+    task.spawn(function()
+        local startTick = tick()
+        -- Flicker for 3.5 seconds to give items time to load and collect
+        while tick() - startTick < 3.5 do
+            for _, prompt in ipairs(Workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") and prompt.Parent and prompt.Parent:IsA("BasePart") then
+                    local dist = (prompt.Parent.Position - targetCF.Position).Magnitude
+                    if dist <= 60 then
+                        local action = prompt.ActionText:lower()
+                        local objectName = prompt.ObjectText:lower()
+                        local name = prompt.Parent.Name:lower()
+                        
+                        if action:find("collect") or action:find("search") or action:find("take") or name:find("bond") or objectName:find("bond") or name:find("safe") or name:find("cash") then
+                            prompt.RequiresLineOfSight = false
+                            prompt.HoldDuration = 0
+                            prompt.MaxActivationDistance = 60
+                            pcall(function() fireproximityprompt(prompt) end)
+                        end
+                    end
+                end
+            end
+            task.wait(0.25)
+        end
+        
+        -- End the Flicker Safely
+        flickerConn:Disconnect()
+        hrp.CFrame = safeCF
+        hrp.Velocity = Vector3.new(0,0,0)
+        
+        -- Restore hitboxes
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanTouch = true end
+        end
+        
+        -- If still droning, lock character back in place
+        if droning then hrp.Anchored = true end
+        
+        isQuantumLooting = false
+        forceTpBtn.Text = "⚡ Quantum Blink & Loot"
         forceTpBtn.BackgroundColor3 = Color3.fromRGB(200, 120, 30)
     end)
 end)
@@ -292,17 +342,8 @@ fullbrightBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ============== LAG-FREE AUTO COLLECT AURA ==============
+-- ============== PASSIVE AUTO COLLECT ==============
 local auraEnabled = false
-local collectRadius = 45 
-local cachedPrompts = {}
-
-for _, v in pairs(Workspace:GetDescendants()) do
-    if v:IsA("ProximityPrompt") then table.insert(cachedPrompts, v) end
-end
-Workspace.DescendantAdded:Connect(function(v)
-    if v:IsA("ProximityPrompt") then table.insert(cachedPrompts, v) end
-end)
 
 auraBtn.MouseButton1Click:Connect(function()
     auraEnabled = not auraEnabled
@@ -316,35 +357,22 @@ auraBtn.MouseButton1Click:Connect(function()
 end)
 
 task.spawn(function()
-    while task.wait(0.2) do
-        if auraEnabled and hrp then
-            for i = #cachedPrompts, 1, -1 do
-                local prompt = cachedPrompts[i]
-                
-                if not prompt or not prompt.Parent then
-                    table.remove(cachedPrompts, i)
-                    continue
-                end
-                
-                local part = prompt.Parent
-                if part and part:IsA("BasePart") then
-                    local dist = (part.Position - hrp.Position).Magnitude
-                    
-                    if dist <= collectRadius then
+    while task.wait(0.5) do
+        if auraEnabled and hrp and not isQuantumLooting then
+            for _, prompt in ipairs(Workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") and prompt.Parent and prompt.Parent:IsA("BasePart") then
+                    local dist = (prompt.Parent.Position - hrp.Position).Magnitude
+                    if dist <= 45 then
                         local action = prompt.ActionText:lower()
                         local objectName = prompt.ObjectText:lower()
-                        local name = part.Name:lower()
+                        local name = prompt.Parent.Name:lower()
                         
                         if action:find("collect") or action:find("search") or action:find("take") or name:find("bond") or objectName:find("bond") or name:find("safe") or name:find("cash") then
-                            
                             prompt.RequiresLineOfSight = false
                             prompt.HoldDuration = 0
-                            prompt.MaxActivationDistance = collectRadius + 10
-                            
+                            prompt.MaxActivationDistance = 55
                             pcall(function() fireproximityprompt(prompt) end)
-                            
-                            part.Name = part.Name .. "_looted"
-                            table.remove(cachedPrompts, i)
+                            prompt.Parent.Name = prompt.Parent.Name .. "_looted"
                         end
                     end
                 end
@@ -368,4 +396,4 @@ plr.CharacterAdded:Connect(function(newChar)
     end
 end)
 
-print("✅ Drone Scout + Ghost TP Loaded!")
+print("✅ Quantum Blink & Drone Scout Loaded Successfully!")
