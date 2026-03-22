@@ -1,5 +1,5 @@
--- Dead Rails Mobile-Friendly Utility
--- Supports Mobile Thumbstick Fly, Touch Buttons, Minimize, Fullbright, and Lag-Free Aura
+-- Dead Rails Ultimate Utility (Fixed Map Loading & True Fullbright)
+-- Uses Physics Fly (Loads Map/Mobs correctly), Atmosphere Bypass Fullbright, and Mobile Support
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -11,12 +11,7 @@ local CoreGui = game:GetService("CoreGui")
 local plr = Players.LocalPlayer
 local char = plr.Character or plr.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
-
--- Auto-update character on respawn
-plr.CharacterAdded:Connect(function(newChar)
-    char = newChar
-    hrp = char:WaitForChild("HumanoidRootPart")
-end)
+local humanoid = char:WaitForChild("Humanoid")
 
 -- ============== GUI CREATION ==============
 local existingGui = plr:WaitForChild("PlayerGui"):FindFirstChild("DeadRailsUtility") or CoreGui:FindFirstChild("DeadRailsUtility")
@@ -81,7 +76,7 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 15
 title.TextXAlignment = Enum.TextXAlignment.Left
 
--- CLOSE BUTTON
+-- CLOSE & MINIMIZE BUTTONS
 local closeBtn = Instance.new("TextButton", header)
 closeBtn.Size = UDim2.new(0, 25, 0, 25)
 closeBtn.Position = UDim2.new(1, -30, 0.5, -12.5)
@@ -92,7 +87,6 @@ closeBtn.Font = Enum.Font.GothamBold
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
--- MINIMIZE BUTTON
 local minBtn = Instance.new("TextButton", header)
 minBtn.Size = UDim2.new(0, 25, 0, 25)
 minBtn.Position = UDim2.new(1, -60, 0.5, -12.5)
@@ -130,10 +124,10 @@ local function createButton(yOffset, defaultText)
 end
 
 local flyBtn = createButton(15, "Fly & Ghost Mode")
-local fullbrightBtn = createButton(65, "Fullbright")
+local fullbrightBtn = createButton(65, "True Fullbright")
 local auraBtn = createButton(115, "Auto-Collect Aura")
 
--- ============== MOBILE FLY CONTROLS (ON-SCREEN) ==============
+-- ============== MOBILE FLY CONTROLS ==============
 local mobileFlyUI = Instance.new("Frame", screenGui)
 mobileFlyUI.Size = UDim2.new(0, 60, 0, 130)
 mobileFlyUI.Position = UDim2.new(1, -80, 0.5, -65)
@@ -156,26 +150,32 @@ end
 
 local upBtn = createFlyControl(0, "⬆️")
 local downBtn = createFlyControl(70, "⬇️")
-
 local upPressed, downPressed = false, false
 
-upBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then upPressed = true end
-end)
-upBtn.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then upPressed = false end
-end)
-downBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = true end
-end)
-downBtn.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = false end
-end)
+upBtn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then upPressed = true end end)
+upBtn.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then upPressed = false end end)
+downBtn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = true end end)
+downBtn.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = false end end)
 
--- ============== FLY & GHOST MODE LOGIC ==============
+-- ============== FLY & GHOST MODE (PHYSICS BASED) ==============
 local flying = false
 local flySpeed = 75
 local flyConnection
+local bodyVelocity, bodyGyro
+
+-- Reset states if player dies
+plr.CharacterAdded:Connect(function(newChar)
+    char = newChar
+    hrp = char:WaitForChild("HumanoidRootPart")
+    humanoid = char:WaitForChild("Humanoid")
+    if flying then
+        flyBtn.Text = "Fly & Ghost Mode: OFF"
+        flyBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        flying = false
+        mobileFlyUI.Visible = false
+        if flyConnection then flyConnection:Disconnect() end
+    end
+end)
 
 flyBtn.MouseButton1Click:Connect(function()
     flying = not flying
@@ -183,14 +183,29 @@ flyBtn.MouseButton1Click:Connect(function()
         flyBtn.Text = "Fly & Ghost Mode: ON"
         flyBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
-        -- Show mobile buttons if on a touch device
         if UserInputService.TouchEnabled then mobileFlyUI.Visible = true end
-        if hrp then hrp.Anchored = true end
         
-        flyConnection = RunService.RenderStepped:Connect(function(dt)
-            if not char or not hrp then return end
+        -- UNANCHORED FLY SETUP (Forces chunks/mobs to load)
+        if hrp and humanoid then
+            hrp.Anchored = false
+            humanoid.PlatformStand = true -- Prevents walking animations/stuck feet
             
-            -- Ghost Mode (Pass through walls + Immune to touch damage)
+            bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            bodyVelocity.Parent = hrp
+            
+            bodyGyro = Instance.new("BodyGyro")
+            bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+            bodyGyro.P = 10000
+            bodyGyro.CFrame = hrp.CFrame
+            bodyGyro.Parent = hrp
+        end
+        
+        flyConnection = RunService.RenderStepped:Connect(function()
+            if not char or not hrp or not humanoid then return end
+            
+            -- Ghost Mode
             for _, part in ipairs(char:GetDescendants()) do
                 if part:IsA("BasePart") then
                     part.CanCollide = false
@@ -198,7 +213,7 @@ flyBtn.MouseButton1Click:Connect(function()
                 end
             end
             
-            -- CROSS-PLATFORM MOVEMENT (Reads WASD and Mobile Thumbstick natively)
+            -- Movement Check
             local moveVector = Vector3.new(0, 0, 0)
             pcall(function()
                 local controlModule = require(plr.PlayerScripts:WaitForChild("PlayerModule")):GetControls()
@@ -206,19 +221,16 @@ flyBtn.MouseButton1Click:Connect(function()
             end)
             
             local camCFrame = Workspace.CurrentCamera.CFrame
-            local flyDir = Vector3.new(0, 0, 0)
+            local flyDir = (camCFrame.RightVector * moveVector.X) + (camCFrame.LookVector * -moveVector.Z)
             
-            if moveVector.Magnitude > 0 then
-                flyDir = (camCFrame.RightVector * moveVector.X) + (camCFrame.LookVector * -moveVector.Z)
-            end
-            
-            -- Vertical Fly (PC space/ctrl OR Mobile Buttons)
             if UserInputService:IsKeyDown(Enum.KeyCode.Space) or upPressed then flyDir = flyDir + Vector3.new(0, 1, 0) end
             if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or downPressed then flyDir = flyDir - Vector3.new(0, 1, 0) end
             
-            if flyDir.Magnitude > 0 then
-                flyDir = flyDir.Unit
-                hrp.CFrame = hrp.CFrame + (flyDir * (flySpeed * dt))
+            if flyDir.Magnitude > 0 then flyDir = flyDir.Unit end
+            
+            if bodyVelocity and bodyGyro then
+                bodyVelocity.Velocity = flyDir * flySpeed
+                bodyGyro.CFrame = camCFrame -- Faces character to camera
             end
         end)
     else
@@ -229,7 +241,10 @@ flyBtn.MouseButton1Click:Connect(function()
         upPressed, downPressed = false, false
         
         if flyConnection then flyConnection:Disconnect() end
-        if hrp then hrp.Anchored = false end
+        if bodyVelocity then bodyVelocity:Destroy() end
+        if bodyGyro then bodyGyro:Destroy() end
+        
+        if humanoid then humanoid.PlatformStand = false end
         
         if char then
             for _, part in ipairs(char:GetDescendants()) do
@@ -242,38 +257,56 @@ flyBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ============== FULLBRIGHT ==============
+-- ============== TRUE FULLBRIGHT (BYPASS ATMOSPHERE/FOG) ==============
 local isFullbright = false
-local fullbrightConnection
+local fbConnection
+local savedLighting = {}
 
 fullbrightBtn.MouseButton1Click:Connect(function()
     isFullbright = not isFullbright
     if isFullbright then
-        fullbrightBtn.Text = "Fullbright: ON"
+        fullbrightBtn.Text = "True Fullbright: ON"
         fullbrightBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
-        fullbrightConnection = RunService.RenderStepped:Connect(function()
+        fbConnection = RunService.RenderStepped:Connect(function()
             Lighting.Ambient = Color3.new(1, 1, 1)
+            Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
             Lighting.Brightness = 2
+            Lighting.ClockTime = 14 -- Sets to Midday (brightest time)
             Lighting.GlobalShadows = false
             Lighting.FogEnd = 100000
+            
+            -- Kill dark atmospheres/fog
+            for _, v in pairs(Lighting:GetChildren()) do
+                if v:IsA("Atmosphere") or v:IsA("FogModifier") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") then
+                    v.Enabled = false
+                end
+            end
         end)
     else
-        fullbrightBtn.Text = "Fullbright: OFF"
+        fullbrightBtn.Text = "True Fullbright: OFF"
         fullbrightBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        if fullbrightConnection then fullbrightConnection:Disconnect() end
-        Lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
+        if fbConnection then fbConnection:Disconnect() end
+        
+        -- Reset environments
+        Lighting.Ambient = Color3.fromRGB(100, 100, 100)
+        Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
         Lighting.GlobalShadows = true
         Lighting.FogEnd = 2000
+        
+        for _, v in pairs(Lighting:GetChildren()) do
+            if v:IsA("Atmosphere") or v:IsA("FogModifier") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") then
+                v.Enabled = true
+            end
+        end
     end
 end)
 
 -- ============== LAG-FREE MOBILE AURA ==============
 local auraEnabled = false
 local collectRadius = 45 
-
--- Cache Prompts so we don't lag mobile devices by scanning workspace constantly
 local cachedPrompts = {}
+
 for _, v in pairs(Workspace:GetDescendants()) do
     if v:IsA("ProximityPrompt") then table.insert(cachedPrompts, v) end
 end
@@ -298,7 +331,6 @@ task.spawn(function()
             for i = #cachedPrompts, 1, -1 do
                 local prompt = cachedPrompts[i]
                 
-                -- Remove broken/deleted prompts from cache
                 if not prompt or not prompt.Parent then
                     table.remove(cachedPrompts, i)
                     continue
@@ -313,7 +345,6 @@ task.spawn(function()
                         local objectName = prompt.ObjectText:lower()
                         local name = part.Name:lower()
                         
-                        -- Target logic
                         if action:find("collect") or action:find("search") or action:find("take") or name:find("bond") or objectName:find("bond") or name:find("safe") or name:find("cash") then
                             
                             prompt.RequiresLineOfSight = false
@@ -323,7 +354,7 @@ task.spawn(function()
                             pcall(function() fireproximityprompt(prompt) end)
                             
                             part.Name = part.Name .. "_looted"
-                            table.remove(cachedPrompts, i) -- Stop targeting it once fired
+                            table.remove(cachedPrompts, i)
                         end
                     end
                 end
@@ -332,4 +363,4 @@ task.spawn(function()
     end
 end)
 
-print("✅ Dead Rails Mobile Utility Loaded Successfully!")
+print("✅ Physics Fly & True Fullbright Loaded Successfully!")
