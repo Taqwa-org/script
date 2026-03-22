@@ -1,5 +1,5 @@
--- Dead Rails Ultimate Utility (Fixed Map Loading & True Fullbright)
--- Uses Physics Fly (Loads Map/Mobs correctly), Atmosphere Bypass Fullbright, and Mobile Support
+-- Dead Rails Safe Utility (Anti-Cheat / Rubberband Bypass)
+-- 3 Buttons: Fly & Ghost (Normal Speed), True Fullbright, Auto-Collect Aura
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -14,11 +14,11 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 local humanoid = char:WaitForChild("Humanoid")
 
 -- ============== GUI CREATION ==============
-local existingGui = plr:WaitForChild("PlayerGui"):FindFirstChild("DeadRailsUtility") or CoreGui:FindFirstChild("DeadRailsUtility")
+local existingGui = plr:WaitForChild("PlayerGui"):FindFirstChild("DeadRailsSafeUtility") or CoreGui:FindFirstChild("DeadRailsSafeUtility")
 if existingGui then existingGui:Destroy() end
 
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "DeadRailsUtility"
+screenGui.Name = "DeadRailsSafeUtility"
 screenGui.ResetOnSpawn = false
 local success = pcall(function() screenGui.Parent = CoreGui end)
 if not success then screenGui.Parent = plr:WaitForChild("PlayerGui") end
@@ -109,7 +109,7 @@ minBtn.MouseButton1Click:Connect(function()
     minBtn.Text = minimized and "+" or "-"
 end)
 
--- UI BUTTON GENERATOR
+-- UI BUTTON GENERATOR (EXACTLY 3 BUTTONS)
 local function createButton(yOffset, defaultText)
     local btn = Instance.new("TextButton", body)
     btn.Size = UDim2.new(0.8, 0, 0, 40)
@@ -125,7 +125,7 @@ end
 
 local flyBtn = createButton(15, "Fly & Ghost Mode")
 local fullbrightBtn = createButton(65, "True Fullbright")
-local auraBtn = createButton(115, "Auto-Collect Aura")
+local auraBtn = createButton(115, "Auto Collect")
 
 -- ============== MOBILE FLY CONTROLS ==============
 local mobileFlyUI = Instance.new("Frame", screenGui)
@@ -157,17 +157,18 @@ upBtn.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.To
 downBtn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = true end end)
 downBtn.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = false end end)
 
--- ============== FLY & GHOST MODE (PHYSICS BASED) ==============
+-- ============== FLY & GHOST MODE (SAFE SPEED) ==============
 local flying = false
-local flySpeed = 75
 local flyConnection
 local bodyVelocity, bodyGyro
 
--- Reset states if player dies
+-- Update character variables upon dying so the script doesn't break
 plr.CharacterAdded:Connect(function(newChar)
     char = newChar
     hrp = char:WaitForChild("HumanoidRootPart")
     humanoid = char:WaitForChild("Humanoid")
+    
+    -- Turn off fly if they died to prevent bugs
     if flying then
         flyBtn.Text = "Fly & Ghost Mode: OFF"
         flyBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
@@ -185,10 +186,9 @@ flyBtn.MouseButton1Click:Connect(function()
         
         if UserInputService.TouchEnabled then mobileFlyUI.Visible = true end
         
-        -- UNANCHORED FLY SETUP (Forces chunks/mobs to load)
         if hrp and humanoid then
             hrp.Anchored = false
-            humanoid.PlatformStand = true -- Prevents walking animations/stuck feet
+            humanoid.PlatformStand = true 
             
             bodyVelocity = Instance.new("BodyVelocity")
             bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
@@ -205,7 +205,7 @@ flyBtn.MouseButton1Click:Connect(function()
         flyConnection = RunService.RenderStepped:Connect(function()
             if not char or not hrp or not humanoid then return end
             
-            -- Ghost Mode
+            -- Ghost Mode (Immune to touch kill-bricks, pass through walls)
             for _, part in ipairs(char:GetDescendants()) do
                 if part:IsA("BasePart") then
                     part.CanCollide = false
@@ -213,7 +213,11 @@ flyBtn.MouseButton1Click:Connect(function()
                 end
             end
             
-            -- Movement Check
+            -- NORMAL SPEED (Prevents Rubberbanding)
+            -- Matches exactly how fast the game allows you to walk
+            local currentSafeSpeed = humanoid.WalkSpeed 
+            if currentSafeSpeed < 16 then currentSafeSpeed = 16 end 
+            
             local moveVector = Vector3.new(0, 0, 0)
             pcall(function()
                 local controlModule = require(plr.PlayerScripts:WaitForChild("PlayerModule")):GetControls()
@@ -229,8 +233,8 @@ flyBtn.MouseButton1Click:Connect(function()
             if flyDir.Magnitude > 0 then flyDir = flyDir.Unit end
             
             if bodyVelocity and bodyGyro then
-                bodyVelocity.Velocity = flyDir * flySpeed
-                bodyGyro.CFrame = camCFrame -- Faces character to camera
+                bodyVelocity.Velocity = flyDir * currentSafeSpeed -- SAFE SPEED HERE
+                bodyGyro.CFrame = camCFrame
             end
         end)
     else
@@ -257,10 +261,9 @@ flyBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ============== TRUE FULLBRIGHT (BYPASS ATMOSPHERE/FOG) ==============
+-- ============== TRUE FULLBRIGHT ==============
 local isFullbright = false
 local fbConnection
-local savedLighting = {}
 
 fullbrightBtn.MouseButton1Click:Connect(function()
     isFullbright = not isFullbright
@@ -272,11 +275,10 @@ fullbrightBtn.MouseButton1Click:Connect(function()
             Lighting.Ambient = Color3.new(1, 1, 1)
             Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
             Lighting.Brightness = 2
-            Lighting.ClockTime = 14 -- Sets to Midday (brightest time)
+            Lighting.ClockTime = 14
             Lighting.GlobalShadows = false
             Lighting.FogEnd = 100000
             
-            -- Kill dark atmospheres/fog
             for _, v in pairs(Lighting:GetChildren()) do
                 if v:IsA("Atmosphere") or v:IsA("FogModifier") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") then
                     v.Enabled = false
@@ -288,7 +290,6 @@ fullbrightBtn.MouseButton1Click:Connect(function()
         fullbrightBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         if fbConnection then fbConnection:Disconnect() end
         
-        -- Reset environments
         Lighting.Ambient = Color3.fromRGB(100, 100, 100)
         Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
         Lighting.GlobalShadows = true
@@ -302,11 +303,12 @@ fullbrightBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ============== LAG-FREE MOBILE AURA ==============
+-- ============== LAG-FREE AUTO COLLECT AURA ==============
 local auraEnabled = false
 local collectRadius = 45 
 local cachedPrompts = {}
 
+-- Background cache generation
 for _, v in pairs(Workspace:GetDescendants()) do
     if v:IsA("ProximityPrompt") then table.insert(cachedPrompts, v) end
 end
@@ -317,10 +319,10 @@ end)
 auraBtn.MouseButton1Click:Connect(function()
     auraEnabled = not auraEnabled
     if auraEnabled then
-        auraBtn.Text = "Auto-Collect Aura: ON"
+        auraBtn.Text = "Auto Collect: ON"
         auraBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
     else
-        auraBtn.Text = "Auto-Collect Aura: OFF"
+        auraBtn.Text = "Auto Collect: OFF"
         auraBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
     end
 end)
@@ -345,6 +347,7 @@ task.spawn(function()
                         local objectName = prompt.ObjectText:lower()
                         local name = part.Name:lower()
                         
+                        -- Target logic
                         if action:find("collect") or action:find("search") or action:find("take") or name:find("bond") or objectName:find("bond") or name:find("safe") or name:find("cash") then
                             
                             prompt.RequiresLineOfSight = false
@@ -363,4 +366,4 @@ task.spawn(function()
     end
 end)
 
-print("✅ Physics Fly & True Fullbright Loaded Successfully!")
+print("✅ Anti-Cheat Safe Mobile Utility Loaded!")
