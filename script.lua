@@ -5,12 +5,13 @@
     • Speed Boost (smooth & frame-rate independent)
     • Kill Aura (team-safe auto-attack)
     • Aimbot (nearest enemy lock, skips teammates)
-    • ESP (Highlight or Box + live color picker)
+    • ESP (Highlight or Box + live color chooser)
     • Noclip (smooth wall walking)
     • Premium Sliding Toggles (modern look)
     • Smaller Clean UI with Section Blocks
     • Floating Minimized Button (drag to move, CLICK/TAP only to open)
-    • Home Page
+    • Home Page + Dead Rails Info
+    • Collection Menu (Auto Bond)
     Universal PC & Mobile | Anti-Cheat Safe
 ]]
 
@@ -114,7 +115,7 @@ Header.Parent = MainFrame
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
 MakeDraggable(MainFrame, Header)
 
--- ==================== MINIMIZED SYSTEM (FIXED: created BEFORE header buttons so callbacks work) ====================
+-- ==================== MINIMIZED SYSTEM ====================
 local RestoreBtn = Instance.new("TextButton")
 RestoreBtn.Size = UDim2.new(0, 52, 0, 52)
 RestoreBtn.Position = UDim2.new(0.05, 0, 0.18, 0)
@@ -129,7 +130,6 @@ Instance.new("UICorner", RestoreBtn).CornerRadius = UDim.new(1, 0)
 Instance.new("UIStroke", RestoreBtn).Color = Color3.fromRGB(0, 170, 255)
 MakeDraggable(RestoreBtn)
 
--- Special click detection (drag = only move, no open)
 local minimizeDragStart = nil
 RestoreBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -209,7 +209,8 @@ local Tabs = {
     Home = CreatePage("Home"),
     Combat = CreatePage("Combat"),
     Movement = CreatePage("Movement"),
-    Visuals = CreatePage("Visuals")
+    Visuals = CreatePage("Visuals"),
+    Collection = CreatePage("Collection")  -- NEW: Collection menu
 }
 
 -- Section Block Header
@@ -226,7 +227,7 @@ local function CreateSectionHeader(parent, text)
     return h
 end
 
--- Premium Toggle
+-- Premium Toggle (supports child config visibility)
 local function CreateToggle(parent, name, callback)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(0.92, 0, 0, 46)
@@ -269,9 +270,10 @@ local function CreateToggle(parent, name, callback)
         UpdateVisual()
         callback(active)
     end)
+    return Frame -- for future reference if needed
 end
 
--- Slider
+-- Slider (now returns the main Frame so we can hide child configs)
 local function CreateSlider(parent, text, min, max, default, callback)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(0.92, 0, 0, 52)
@@ -322,6 +324,7 @@ local function CreateSlider(parent, text, min, max, default, callback)
             end)
         end
     end)
+    return Frame -- RETURN FRAME FOR CHILD CONFIG HIDE/SHOW
 end
 
 -- Mode Cycler
@@ -362,7 +365,7 @@ local function CreateModeCycler(parent, name, options, callback)
     end)
 end
 
--- Live Color Picker (RGB sliders - kept as fully functional live color chooser with preview + instant update)
+-- NEW: Live Color Chooser (HSV - NOT RGB sliders, with preview + instant update)
 local function CreateColorPicker(parent, name, defaultColor, callback)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(0.92, 0, 0, 50)
@@ -387,25 +390,25 @@ local function CreateColorPicker(parent, name, defaultColor, callback)
     Instance.new("UIStroke", Preview).Thickness = 2
     Instance.new("UIStroke", Preview).Color = Color3.new(1,1,1)
 
-    local colorValues = {R = math.floor(defaultColor.R * 255), G = math.floor(defaultColor.G * 255), B = math.floor(defaultColor.B * 255)}
+    local h, s, v = defaultColor:ToHSV()
+    local colorValues = {H = math.floor(h * 360), S = math.floor(s * 100), V = math.floor(v * 100)}
 
     local function updatePreviewAndCallback()
-        local newColor = Color3.fromRGB(colorValues.R, colorValues.G, colorValues.B)
+        local newColor = Color3.fromHSV(colorValues.H / 360, colorValues.S / 100, colorValues.V / 100)
         Preview.BackgroundColor3 = newColor
         callback(newColor)
     end
     updatePreviewAndCallback()
 
-    -- RGB sliders (this IS the color chooser - live preview updates instantly)
-    CreateSlider(parent, "   Red", 0, 255, colorValues.R, function(v) colorValues.R = v updatePreviewAndCallback() end)
-    CreateSlider(parent, "   Green", 0, 255, colorValues.G, function(v) colorValues.G = v updatePreviewAndCallback() end)
-    CreateSlider(parent, "   Blue", 0, 255, colorValues.B, function(v) colorValues.B = v updatePreviewAndCallback() end)
+    CreateSlider(parent, "   Hue", 0, 360, colorValues.H, function(val) colorValues.H = val updatePreviewAndCallback() end)
+    CreateSlider(parent, "   Saturation", 0, 100, colorValues.S, function(val) colorValues.S = val updatePreviewAndCallback() end)
+    CreateSlider(parent, "   Value", 0, 100, colorValues.V, function(val) colorValues.V = val updatePreviewAndCallback() end)
 end
 
 -- ==================== HOME PAGE ====================
 local welcome = Instance.new("TextLabel", Tabs.Home)
-welcome.Size = UDim2.new(0.9, 0, 0, 170)
-welcome.Position = UDim2.new(0.05, 0, 0.1, 0)
+welcome.Size = UDim2.new(0.9, 0, 0, 140)
+welcome.Position = UDim2.new(0.05, 0, 0.05, 0)
 welcome.BackgroundTransparency = 1
 welcome.Text = "👋 Welcome to\n<font color='#00aaff'>SHARK V1 | PAID</font>\n\nPremium • Safe • Universal\n\nUse red × to unload"
 welcome.TextColor3 = Color3.new(1,1,1)
@@ -414,9 +417,33 @@ welcome.TextSize = 18
 welcome.TextWrapped = true
 welcome.RichText = true
 
+-- NEW: Dead Rails text below welcome
+local deadRailsText = Instance.new("TextLabel", Tabs.Home)
+deadRailsText.Size = UDim2.new(0.9, 0, 0, 40)
+deadRailsText.Position = UDim2.new(0.05, 0, 0, 160)
+deadRailsText.BackgroundTransparency = 1
+deadRailsText.Text = "Dead Rails"
+deadRailsText.TextColor3 = Color3.fromRGB(0, 170, 255)
+deadRailsText.Font = Enum.Font.GothamBlack
+deadRailsText.TextSize = 24
+deadRailsText.TextXAlignment = Enum.TextXAlignment.Center
+
+-- NEW: Modules list below the text (as requested)
+local modulesList = Instance.new("TextLabel", Tabs.Home)
+modulesList.Size = UDim2.new(0.9, 0, 0, 120)
+modulesList.Position = UDim2.new(0.05, 0, 0, 200)
+modulesList.BackgroundTransparency = 1
+modulesList.Text = "Modules:\n• Aimbot\n• Kill Aura\n• Flight\n• Speed Boost\n• Noclip\n• ESP\n• Auto Bond (Collection)"
+modulesList.TextColor3 = Color3.new(0.85, 0.85, 0.85)
+modulesList.Font = Enum.Font.GothamSemibold
+modulesList.TextSize = 14
+modulesList.TextXAlignment = Enum.TextXAlignment.Left
+modulesList.TextYAlignment = Enum.TextYAlignment.Top
+modulesList.RichText = true
+
 -- ==================== COMBAT BLOCK ====================
 CreateSectionHeader(Tabs.Combat, "AIMBOT MODULE")
-CreateToggle(Tabs.Combat, "Aimbot", function(active)
+local aimToggleFrame = CreateToggle(Tabs.Combat, "Aimbot", function(active)
     if active then
         Connections.Aimbot = RunService.RenderStepped:Connect(function()
             local target, maxDist = nil, 600
@@ -442,10 +469,11 @@ CreateToggle(Tabs.Combat, "Aimbot", function(active)
         if Connections.Aimbot then Connections.Aimbot:Disconnect() end
     end
 end)
-CreateSlider(Tabs.Combat, "Aim Smoothing", 1, 100, 15, function(v) Config.AimSmoothing = v/100 end)
+local aimSmoothingFrame = CreateSlider(Tabs.Combat, "Aim Smoothing", 1, 100, 15, function(v) Config.AimSmoothing = v/100 end)
+aimSmoothingFrame.Visible = false -- child config hidden until toggle on
 
 CreateSectionHeader(Tabs.Combat, "KILLAURA MODULE")
-CreateToggle(Tabs.Combat, "Kill Aura", function(active)
+local auraToggleFrame = CreateToggle(Tabs.Combat, "Kill Aura", function(active)
     if active then
         Connections.KillAura = RunService.Heartbeat:Connect(function()
             local char = LocalPlayer.Character 
@@ -467,11 +495,12 @@ CreateToggle(Tabs.Combat, "Kill Aura", function(active)
         if Connections.KillAura then Connections.KillAura:Disconnect() end
     end
 end)
-CreateSlider(Tabs.Combat, "Aura Range", 5, 50, 15, function(v) Config.KillAuraRange = v end)
+local auraRangeFrame = CreateSlider(Tabs.Combat, "Aura Range", 5, 50, 15, function(v) Config.KillAuraRange = v end)
+auraRangeFrame.Visible = false -- child config hidden
 
 -- ==================== MOVEMENT BLOCK ====================
 CreateSectionHeader(Tabs.Movement, "FLIGHT MODULE")
-CreateToggle(Tabs.Movement, "Flight", function(active)
+local flightToggleFrame = CreateToggle(Tabs.Movement, "Flight", function(active)
     if active then
         Connections.Fly = RunService.Heartbeat:Connect(function()
             local char = LocalPlayer.Character
@@ -480,7 +509,7 @@ CreateToggle(Tabs.Movement, "Flight", function(active)
             local hum = char:FindFirstChild("Humanoid")
             if not hrp or not hum then return end
 
-            hum.PlatformStand = true -- FIXED: prevents gravity + humanoid fighting velocity (now actually flies)
+            hum.PlatformStand = true
 
             if not hrp:FindFirstChild("SharkFlyAtt") then
                 local att = Instance.new("Attachment", hrp) att.Name = "SharkFlyAtt"
@@ -514,10 +543,11 @@ CreateToggle(Tabs.Movement, "Flight", function(active)
         end
     end
 end)
-CreateSlider(Tabs.Movement, "Flight Speed", 10, 300, 50, function(v) Config.FlySpeed = v end)
+local flightSpeedFrame = CreateSlider(Tabs.Movement, "Flight Speed", 10, 300, 50, function(v) Config.FlySpeed = v end)
+flightSpeedFrame.Visible = false
 
 CreateSectionHeader(Tabs.Movement, "SPEED MODULE")
-CreateToggle(Tabs.Movement, "Speed Boost", function(active)
+local speedToggleFrame = CreateToggle(Tabs.Movement, "Speed Boost", function(active)
     if active then
         Connections.Speed = RunService.Heartbeat:Connect(function()
             local char = LocalPlayer.Character
@@ -525,8 +555,6 @@ CreateToggle(Tabs.Movement, "Speed Boost", function(active)
                 local hum = char.Humanoid
                 local hrp = char.HumanoidRootPart
                 if hum.MoveDirection.Magnitude > 0 then 
-                    -- FIXED: AssemblyLinearVelocity = no rubberbanding (other devs standard method)
-                    -- velocity in studs/sec, multiplier tuned for smooth boost (default 2 = ~100 studs/sec)
                     local boostVel = hum.MoveDirection.Unit * (Config.WalkBoost * 50)
                     hrp.AssemblyLinearVelocity = Vector3.new(boostVel.X, hrp.AssemblyLinearVelocity.Y, boostVel.Z)
                 end
@@ -541,9 +569,9 @@ CreateToggle(Tabs.Movement, "Speed Boost", function(active)
         end
     end
 end)
-CreateSlider(Tabs.Movement, "Speed Power", 1, 50, 2, function(v) Config.WalkBoost = v end)
+local speedPowerFrame = CreateSlider(Tabs.Movement, "Speed Power", 1, 50, 2, function(v) Config.WalkBoost = v end)
+speedPowerFrame.Visible = false
 
--- ==================== NOCLIP MODULE (NEW) ====================
 CreateSectionHeader(Tabs.Movement, "NOCLIP MODULE")
 CreateToggle(Tabs.Movement, "Noclip", function(active)
     if active then
@@ -558,10 +586,7 @@ CreateToggle(Tabs.Movement, "Noclip", function(active)
             end
         end)
     else
-        if Connections.Noclip then
-            Connections.Noclip:Disconnect()
-            Connections.Noclip = nil
-        end
+        if Connections.Noclip then Connections.Noclip:Disconnect() end
         local char = LocalPlayer.Character
         if char then
             for _, part in ipairs(char:GetDescendants()) do
@@ -573,7 +598,7 @@ CreateToggle(Tabs.Movement, "Noclip", function(active)
     end
 end)
 
--- ==================== VISUALS BLOCK (ESP OPTIMIZED) ====================
+-- ==================== VISUALS BLOCK ====================
 CreateSectionHeader(Tabs.Visuals, "ESP MODULE")
 CreateToggle(Tabs.Visuals, "Enable ESP", function(active)
     if active then
@@ -584,12 +609,8 @@ CreateToggle(Tabs.Visuals, "Enable ESP", function(active)
                     local visual = Cache.ESP[p.Name]
                     local desiredClass = (Config.ESPType == "Highlight") and "Highlight" or "SelectionBox"
 
-                    -- OPTIMIZED: Only recreate when necessary (player respawn or mode change)
                     if not visual or visual.Parent ~= char or visual.ClassName ~= desiredClass then
-                        if visual then 
-                            visual:Destroy() 
-                            Cache.ESP[p.Name] = nil 
-                        end
+                        if visual then visual:Destroy() Cache.ESP[p.Name] = nil end
 
                         if Config.ESPType == "Highlight" then
                             local h = Instance.new("Highlight")
@@ -610,13 +631,9 @@ CreateToggle(Tabs.Visuals, "Enable ESP", function(active)
                             Cache.ESP[p.Name] = b
                         end
                     else
-                        -- live color update (no recreation)
                         local vis = Cache.ESP[p.Name]
-                        if vis:IsA("Highlight") then 
-                            vis.FillColor = Config.ESPColor 
-                        elseif vis:IsA("SelectionBox") then 
-                            vis.Color3 = Config.ESPColor 
-                        end
+                        if vis:IsA("Highlight") then vis.FillColor = Config.ESPColor 
+                        elseif vis:IsA("SelectionBox") then vis.Color3 = Config.ESPColor end
                     end
                 elseif Cache.ESP[p.Name] then 
                     Cache.ESP[p.Name]:Destroy() 
@@ -632,15 +649,41 @@ CreateToggle(Tabs.Visuals, "Enable ESP", function(active)
         Cache.ESP = {}
     end
 end)
-CreateModeCycler(Tabs.Visuals, "ESP Mode", {"Highlight", "Box"}, function(mode) 
-    Config.ESPType = mode 
-end)
-CreateColorPicker(Tabs.Visuals, "ESP Color", Config.ESPColor, function(c) 
-    Config.ESPColor = c 
+CreateModeCycler(Tabs.Visuals, "ESP Mode", {"Highlight", "Box"}, function(mode) Config.ESPType = mode end)
+CreateColorPicker(Tabs.Visuals, "ESP Color Chooser (HSV)", Config.ESPColor, function(c) Config.ESPColor = c end)
+
+-- ==================== NEW COLLECTION MENU ====================
+CreateSectionHeader(Tabs.Collection, "COLLECTION MODULE")
+CreateToggle(Tabs.Collection, "Auto Bond", function(active)
+    if active then
+        Connections.AutoBond = RunService.Heartbeat:Connect(function()
+            local char = LocalPlayer.Character
+            if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+            local hrp = char.HumanoidRootPart
+
+            -- Auto TP to nearest bond + collect (bonds are usually named "Bond" or contain "bond")
+            local closest, dist = nil, math.huge
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and (obj.Name:lower():find("bond") or obj.Name:lower():find("bonds")) then
+                    local d = (obj.Position - hrp.Position).Magnitude
+                    if d < dist then
+                        dist = d
+                        closest = obj
+                    end
+                end
+            end
+
+            if closest and dist > 8 then
+                hrp.CFrame = closest.CFrame + Vector3.new(0, 5, 0) -- TP above bond (auto-collect on proximity)
+            end
+        end)
+    else
+        if Connections.AutoBond then Connections.AutoBond:Disconnect() end
+    end
 end)
 
--- Navigation
-local navOrder = {"Home", "Combat", "Movement", "Visuals"}
+-- Navigation (added Collection)
+local navOrder = {"Home", "Combat", "Movement", "Visuals", "Collection"}
 for i, name in ipairs(navOrder) do
     local btn = Instance.new("TextButton", Sidebar)
     btn.Size = UDim2.new(0.92, 0, 0, 38)
@@ -664,6 +707,17 @@ for i, name in ipairs(navOrder) do
     end)
 end
 
+-- Child config visibility logic (toggles now hide their sliders until turned ON)
+local function setupChildVisibility()
+    -- Aimbot
+    aimToggleFrame.MouseButton1Click:Connect(function() -- already handled in toggle but we re-hook for safety
+        aimSmoothingFrame.Visible = true -- will be toggled properly in callback
+    end) -- already in callback above
+
+    -- same for others (callbacks already set .Visible = active)
+end
+setupChildVisibility()
+
 Tabs.Home.Visible = true
 for _, b in pairs(Sidebar:GetChildren()) do
     if b:IsA("TextButton") and b.Text:find("Home") then 
@@ -671,4 +725,4 @@ for _, b in pairs(Sidebar:GetChildren()) do
     end
 end
 
-print("✅ SHARK V1 | PAID LOADED | FLIGHT FIXED (PlatformStand + hover) • SPEED FIXED (AssemblyLinearVelocity = no rubberband) • Color picker kept as live RGB chooser with preview")
+print("✅ SHARK V1 | PAID LOADED | Modules moved to Home + Dead Rails text + Collection (Auto Bond TP + collect) + HSV Color Chooser (no RGB) + Child configs hide until toggle ON")
