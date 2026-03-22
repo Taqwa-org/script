@@ -45,12 +45,20 @@ local function RandomName()
 end
 
 local function KillScript()
-    for _, conn in pairs(Connections) do if conn then conn:Disconnect() end end
+    for _, conn in pairs(Connections) do 
+        if conn then conn:Disconnect() end 
+    end
     if LocalPlayer.Character then
         local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then for _, v in pairs(hrp:GetChildren()) do if v.Name:find("Shark") then v:Destroy() end end end
+        if hrp then 
+            for _, v in pairs(hrp:GetChildren()) do 
+                if v.Name:find("Shark") then v:Destroy() end 
+            end 
+        end
     end
-    for _, obj in pairs(Cache.ESP) do if obj then obj:Destroy() end end
+    for _, obj in pairs(Cache.ESP) do 
+        if obj then obj:Destroy() end 
+    end
     Cache.ESP = {}
     if UIObjects.MainGui then UIObjects.MainGui:Destroy() end
 end
@@ -202,7 +210,7 @@ local Tabs = {
     Visuals = CreatePage("Visuals")
 }
 
--- Section Block Header (makes modules look like clean blocks)
+-- Section Block Header
 local function CreateSectionHeader(parent, text)
     local h = Instance.new("TextLabel", parent)
     h.Size = UDim2.new(0.92, 0, 0, 32)
@@ -261,7 +269,7 @@ local function CreateToggle(parent, name, callback)
     end)
 end
 
--- Slider & ColorPicker & ModeCycler (same as before - perfect)
+-- Slider
 local function CreateSlider(parent, text, min, max, default, callback)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(0.92, 0, 0, 52)
@@ -299,15 +307,110 @@ local function CreateSlider(parent, text, min, max, default, callback)
     Track.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             UpdateVal(input)
-            local conn = UserInputService.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then UpdateVal(i) end end)
+            local conn = UserInputService.InputChanged:Connect(function(i) 
+                if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then 
+                    UpdateVal(i) 
+                end 
+            end)
             local drop; drop = UserInputService.InputEnded:Connect(function(i)
-                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then conn:Disconnect() drop:Disconnect() end
+                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then 
+                    conn:Disconnect() 
+                    drop:Disconnect() 
+                end
             end)
         end
     end)
 end
 
--- (CreateColorPicker and CreateModeCycler are unchanged from last version - already perfect)
+-- ==================== MODE CYCLER (Premium look) ====================
+local function CreateModeCycler(parent, name, options, callback)
+    local Frame = Instance.new("Frame", parent)
+    Frame.Size = UDim2.new(0.92, 0, 0, 46)
+    Frame.BackgroundColor3 = Color3.fromRGB(22, 25, 34)
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 10)
+
+    local Label = Instance.new("TextLabel", Frame)
+    Label.Size = UDim2.new(0.5, 0, 1, 0)
+    Label.Position = UDim2.new(0, 14, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = Color3.new(0.85, 0.85, 0.85)
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local ValueLabel = Instance.new("TextLabel", Frame)
+    ValueLabel.Size = UDim2.new(0.35, 0, 1, 0)
+    ValueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+    ValueLabel.BackgroundTransparency = 1
+    ValueLabel.TextColor3 = Color3.fromRGB(0, 170, 255)
+    ValueLabel.Font = Enum.Font.GothamBold
+    ValueLabel.TextSize = 14
+    ValueLabel.Text = options[1]
+
+    local currentIndex = 1
+    local Btn = Instance.new("TextButton", Frame)
+    Btn.Size = UDim2.new(1, 0, 1, 0)
+    Btn.BackgroundTransparency = 1
+    Btn.MouseButton1Click:Connect(function()
+        currentIndex = (currentIndex % #options) + 1
+        local selected = options[currentIndex]
+        ValueLabel.Text = selected
+        callback(selected)
+    end)
+end
+
+-- ==================== LIVE COLOR PICKER (RGB + Preview) ====================
+local function CreateColorPicker(parent, name, defaultColor, callback)
+    local Frame = Instance.new("Frame", parent)
+    Frame.Size = UDim2.new(0.92, 0, 0, 50)
+    Frame.BackgroundColor3 = Color3.fromRGB(22, 25, 34)
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 10)
+
+    local Label = Instance.new("TextLabel", Frame)
+    Label.Size = UDim2.new(0.5, 0, 1, 0)
+    Label.Position = UDim2.new(0, 14, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = Color3.new(0.85, 0.85, 0.85)
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local Preview = Instance.new("Frame", Frame)
+    Preview.Size = UDim2.new(0, 38, 0, 38)
+    Preview.Position = UDim2.new(1, -50, 0.5, -19)
+    Preview.BackgroundColor3 = defaultColor
+    Instance.new("UICorner", Preview).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", Preview).Thickness = 2
+    Instance.new("UIStroke", Preview).Color = Color3.new(1,1,1)
+
+    local colorValues = {
+        R = math.floor(defaultColor.R * 255),
+        G = math.floor(defaultColor.G * 255),
+        B = math.floor(defaultColor.B * 255)
+    }
+
+    local function updatePreviewAndCallback()
+        local newColor = Color3.fromRGB(colorValues.R, colorValues.G, colorValues.B)
+        Preview.BackgroundColor3 = newColor
+        callback(newColor)
+    end
+    updatePreviewAndCallback()
+
+    CreateSlider(parent, "Red", 0, 255, colorValues.R, function(v)
+        colorValues.R = v
+        updatePreviewAndCallback()
+    end)
+    CreateSlider(parent, "Green", 0, 255, colorValues.G, function(v)
+        colorValues.G = v
+        updatePreviewAndCallback()
+    end)
+    CreateSlider(parent, "Blue", 0, 255, colorValues.B, function(v)
+        colorValues.B = v
+        updatePreviewAndCallback()
+    end)
+end
 
 -- ==================== HOME PAGE ====================
 local welcome = Instance.new("TextLabel", Tabs.Home)
@@ -334,11 +437,16 @@ CreateToggle(Tabs.Combat, "Aimbot", function(active)
                     if onScreen then
                         local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
                         local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                        if dist < maxDist then maxDist = dist target = p.Character.Head end
+                        if dist < maxDist then 
+                            maxDist = dist 
+                            target = p.Character.Head 
+                        end
                     end
                 end
             end
-            if target then Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Position), Config.AimSmoothing) end
+            if target then 
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Position), Config.AimSmoothing) 
+            end
         end)
     else
         if Connections.Aimbot then Connections.Aimbot:Disconnect() end
@@ -350,14 +458,17 @@ CreateSectionHeader(Tabs.Combat, "KILLAURA MODULE")
 CreateToggle(Tabs.Combat, "Kill Aura", function(active)
     if active then
         Connections.KillAura = RunService.Heartbeat:Connect(function()
-            local char = LocalPlayer.Character if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+            local char = LocalPlayer.Character 
+            if not char or not char:FindFirstChild("HumanoidRootPart") then return end
             local hrp = char.HumanoidRootPart
             local tool = char:FindFirstChildOfClass("Tool")
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                     if not (LocalPlayer.Team and p.Team and LocalPlayer.Team == p.Team) then
                         local dist = (p.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
-                        if dist <= Config.KillAuraRange and tool then tool:Activate() end
+                        if dist <= Config.KillAuraRange and tool then 
+                            tool:Activate() 
+                        end
                     end
                 end
             end
@@ -380,23 +491,42 @@ CreateToggle(Tabs.Movement, "Flight", function(active)
             if not hrp or not hum then return end
 
             if not hrp:FindFirstChild("SharkFlyAtt") then
-                local att = Instance.new("Attachment", hrp) att.Name = "SharkFlyAtt"
-                local lv = Instance.new("LinearVelocity", hrp) lv.Name = "SharkFlyVel" lv.Attachment0 = att lv.MaxForce = math.huge lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
-                local gyro = Instance.new("BodyGyro", hrp) gyro.Name = "SharkFlyGyro" gyro.MaxTorque = Vector3.new(math.huge,math.huge,math.huge) gyro.P = 30000 gyro.D = 500
+                local att = Instance.new("Attachment", hrp) 
+                att.Name = "SharkFlyAtt"
+                local lv = Instance.new("LinearVelocity", hrp) 
+                lv.Name = "SharkFlyVel" 
+                lv.Attachment0 = att 
+                lv.MaxForce = math.huge 
+                lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+                local gyro = Instance.new("BodyGyro", hrp) 
+                gyro.Name = "SharkFlyGyro" 
+                gyro.MaxTorque = Vector3.new(math.huge,math.huge,math.huge) 
+                gyro.P = 30000 
+                gyro.D = 500
             end
 
             local moveDir = hum.MoveDirection
-            local camCFrame = Camera.CFrame
-            local vel = Vector3.zero
-            if moveDir.Magnitude > 0 then vel = (camCFrame.RightVector * moveDir.X + camCFrame.LookVector * moveDir.Z) * Config.FlySpeed end
+            local vel = moveDir * Config.FlySpeed                     -- FIXED: Direct use of MoveDirection (was broken)
             hrp.SharkFlyVel.VectorVelocity = vel
 
             local gyro = hrp:FindFirstChild("SharkFlyGyro")
-            if gyro then local flatLook = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z).Unit gyro.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + flatLook) end
+            if gyro then 
+                local camCFrame = Camera.CFrame
+                local flatLook = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z).Unit 
+                gyro.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + flatLook) 
+            end
         end)
     else
         if Connections.Fly then Connections.Fly:Disconnect() end
-        local char = LocalPlayer.Character if char then local hrp = char:FindFirstChild("HumanoidRootPart") if hrp then for _,v in pairs(hrp:GetChildren()) do if v.Name:find("Shark") then v:Destroy() end end end end
+        local char = LocalPlayer.Character 
+        if char then 
+            local hrp = char:FindFirstChild("HumanoidRootPart") 
+            if hrp then 
+                for _,v in pairs(hrp:GetChildren()) do 
+                    if v.Name:find("Shark") then v:Destroy() end 
+                end 
+            end 
+        end
     end
 end)
 CreateSlider(Tabs.Movement, "Flight Speed", 10, 300, 50, function(v) Config.FlySpeed = v end)
@@ -408,7 +538,9 @@ CreateToggle(Tabs.Movement, "Speed Boost", function(active)
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
                 local hum = char.Humanoid
-                if hum.MoveDirection.Magnitude > 0 then char.HumanoidRootPart.CFrame += hum.MoveDirection * Config.WalkBoost * 8 * dt end
+                if hum.MoveDirection.Magnitude > 0 then 
+                    char.HumanoidRootPart.CFrame += hum.MoveDirection * Config.WalkBoost * 8 * dt 
+                end
             end
         end)
     else
@@ -423,29 +555,65 @@ CreateToggle(Tabs.Visuals, "Enable ESP", function(active)
     if active then
         Connections.ESP = RunService.RenderStepped:Connect(function()
             for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.Humanoid.Health > 0 then
+                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
                     local char = p.Character
-                    if not Cache.ESP[p.Name] or Cache.ESP[p.Name].Parent ~= char then
-                        if Cache.ESP[p.Name] then Cache.ESP[p.Name]:Destroy() end
+                    local visual = Cache.ESP[p.Name]
+                    local desiredClass = (Config.ESPType == "Highlight") and "Highlight" or "SelectionBox"
+
+                    -- FIXED: Full type check so mode change instantly recreates the correct visual
+                    if not visual or visual.Parent ~= char or visual.ClassName ~= desiredClass then
+                        if visual then 
+                            visual:Destroy() 
+                            Cache.ESP[p.Name] = nil 
+                        end
+
                         if Config.ESPType == "Highlight" then
-                            local h = Instance.new("Highlight") h.Name = RandomName() h.FillColor = Config.ESPColor h.FillTransparency = 0.5 h.OutlineColor = Color3.new(1,1,1) h.Parent = char Cache.ESP[p.Name] = h
-                        elseif Config.ESPType == "Box" then
-                            local b = Instance.new("SelectionBox") b.Name = RandomName() b.Adornee = char b.Color3 = Config.ESPColor b.LineThickness = 0.05 b.Parent = char Cache.ESP[p.Name] = b
+                            local h = Instance.new("Highlight")
+                            h.Name = RandomName()
+                            h.FillColor = Config.ESPColor
+                            h.FillTransparency = 0.5
+                            h.OutlineColor = Color3.new(1,1,1)
+                            h.OutlineTransparency = 0
+                            h.Parent = char
+                            Cache.ESP[p.Name] = h
+                        else
+                            local b = Instance.new("SelectionBox")
+                            b.Name = RandomName()
+                            b.Adornee = char
+                            b.Color3 = Config.ESPColor
+                            b.LineThickness = 0.05
+                            b.Parent = char
+                            Cache.ESP[p.Name] = b
                         end
                     else
-                        local visual = Cache.ESP[p.Name]
-                        if visual:IsA("Highlight") then visual.FillColor = Config.ESPColor elseif visual:IsA("SelectionBox") then visual.Color3 = Config.ESPColor end
+                        -- live color update
+                        local vis = Cache.ESP[p.Name]
+                        if vis:IsA("Highlight") then 
+                            vis.FillColor = Config.ESPColor 
+                        elseif vis:IsA("SelectionBox") then 
+                            vis.Color3 = Config.ESPColor 
+                        end
                     end
-                elseif Cache.ESP[p.Name] then Cache.ESP[p.Name]:Destroy() Cache.ESP[p.Name] = nil end
+                elseif Cache.ESP[p.Name] then 
+                    Cache.ESP[p.Name]:Destroy() 
+                    Cache.ESP[p.Name] = nil 
+                end
             end
         end)
     else
         if Connections.ESP then Connections.ESP:Disconnect() end
-        for _, obj in pairs(Cache.ESP) do if obj then obj:Destroy() end end Cache.ESP = {}
+        for _, obj in pairs(Cache.ESP) do 
+            if obj then obj:Destroy() end 
+        end 
+        Cache.ESP = {}
     end
 end)
-CreateModeCycler(Tabs.Visuals, "ESP Mode", {"Highlight", "Box"}, function(mode) Config.ESPType = mode end)
-CreateColorPicker(Tabs.Visuals, "ESP Color", Config.ESPColor, function(c) Config.ESPColor = c end)
+CreateModeCycler(Tabs.Visuals, "ESP Mode", {"Highlight", "Box"}, function(mode) 
+    Config.ESPType = mode 
+end)
+CreateColorPicker(Tabs.Visuals, "ESP Color", Config.ESPColor, function(c) 
+    Config.ESPColor = c 
+end)
 
 -- Navigation
 local navOrder = {"Home", "Combat", "Movement", "Visuals"}
@@ -463,14 +631,20 @@ for i, name in ipairs(navOrder) do
     btn.MouseButton1Click:Connect(function()
         for _, p in pairs(Tabs) do p.Visible = false end
         Tabs[name].Visible = true
-        for _, b in pairs(Sidebar:GetChildren()) do if b:IsA("TextButton") then b.TextColor3 = Color3.new(0.6, 0.6, 0.6) end end
+        for _, b in pairs(Sidebar:GetChildren()) do 
+            if b:IsA("TextButton") then 
+                b.TextColor3 = Color3.new(0.6, 0.6, 0.6) 
+            end 
+        end
         btn.TextColor3 = Color3.fromRGB(0, 170, 255)
     end)
 end
 
 Tabs.Home.Visible = true
 for _, b in pairs(Sidebar:GetChildren()) do
-    if b:IsA("TextButton") and b.Text:find("Home") then b.TextColor3 = Color3.fromRGB(0, 170, 255) end
+    if b:IsA("TextButton") and b.Text:find("Home") then 
+        b.TextColor3 = Color3.fromRGB(0, 170, 255) 
+    end
 end
 
-print("✅ SHARK V1 | PAID LOADED | Smaller Menu + Block Modules + Fixed Minimized")
+print("✅ SHARK V1 | PAID LOADED | All bugs fixed • Complete • Ultra smooth")
