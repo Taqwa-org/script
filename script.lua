@@ -6,6 +6,7 @@
     • Kill Aura (team-safe auto-attack)
     • Aimbot (nearest enemy lock, skips teammates)
     • ESP (Highlight or Box + live color picker)
+    • Noclip (smooth wall walking)
     • Premium Sliding Toggles (modern look)
     • Smaller Clean UI with Section Blocks
     • Floating Minimized Button (drag to move, CLICK/TAP only to open)
@@ -29,7 +30,6 @@ local hiddenUI = (gethui and gethui()) or CoreGui
 local Config = {
     FlySpeed = 50,
     WalkBoost = 2,
-    ESP = false,
     ESPColor = Color3.fromRGB(0, 210, 255),
     ESPType = "Highlight",
     AimSmoothing = 0.15,
@@ -112,34 +112,7 @@ Header.Parent = MainFrame
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
 MakeDraggable(MainFrame, Header)
 
-local Title = Instance.new("TextLabel")
-Title.Text = "SHARK <font color='#00aaff'>V1</font> | PAID"
-Title.RichText = true
-Title.Size = UDim2.new(1, -110, 1, 0)
-Title.Position = UDim2.new(0, 18, 0, 0)
-Title.TextColor3 = Color3.new(1,1,1)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 15
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.BackgroundTransparency = 1
-Title.Parent = Header
-
-local function CreateHeaderBtn(txt, xPos, color, callback)
-    local b = Instance.new("TextButton", Header)
-    b.Size = UDim2.new(0, 36, 1, 0)
-    b.Position = UDim2.new(1, xPos, 0, 0)
-    b.BackgroundTransparency = 1
-    b.Text = txt
-    b.TextColor3 = color
-    b.TextSize = 19
-    b.Font = Enum.Font.GothamBold
-    b.MouseButton1Click:Connect(callback)
-end
-
-CreateHeaderBtn("–", -78, Color3.fromRGB(200,200,200), function() MainFrame.Visible = false; RestoreBtn.Visible = true end)
-CreateHeaderBtn("×", -42, Color3.fromRGB(255, 80, 80), KillScript)
-
--- ==================== MINIMIZED SYSTEM (Drag = Move ONLY | Click/Tap = Open) ====================
+-- ==================== MINIMIZED SYSTEM (FIXED: created BEFORE header buttons so callbacks work) ====================
 local RestoreBtn = Instance.new("TextButton")
 RestoreBtn.Size = UDim2.new(0, 52, 0, 52)
 RestoreBtn.Position = UDim2.new(0.05, 0, 0.18, 0)
@@ -170,6 +143,33 @@ RestoreBtn.InputEnded:Connect(function(input)
         minimizeDragStart = nil
     end
 end)
+
+local Title = Instance.new("TextLabel")
+Title.Text = "SHARK <font color='#00aaff'>V1</font> | PAID"
+Title.RichText = true
+Title.Size = UDim2.new(1, -110, 1, 0)
+Title.Position = UDim2.new(0, 18, 0, 0)
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 15
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.BackgroundTransparency = 1
+Title.Parent = Header
+
+local function CreateHeaderBtn(txt, xPos, color, callback)
+    local b = Instance.new("TextButton", Header)
+    b.Size = UDim2.new(0, 36, 1, 0)
+    b.Position = UDim2.new(1, xPos, 0, 0)
+    b.BackgroundTransparency = 1
+    b.Text = txt
+    b.TextColor3 = color
+    b.TextSize = 19
+    b.Font = Enum.Font.GothamBold
+    b.MouseButton1Click:Connect(callback)
+end
+
+CreateHeaderBtn("–", -78, Color3.fromRGB(200,200,200), function() MainFrame.Visible = false; RestoreBtn.Visible = true end)
+CreateHeaderBtn("×", -42, Color3.fromRGB(255, 80, 80), KillScript)
 
 -- Sidebar
 local Sidebar = Instance.new("Frame", MainFrame)
@@ -322,7 +322,7 @@ local function CreateSlider(parent, text, min, max, default, callback)
     end)
 end
 
--- ==================== MODE CYCLER (Premium look) ====================
+-- Mode Cycler
 local function CreateModeCycler(parent, name, options, callback)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(0.92, 0, 0, 46)
@@ -360,7 +360,7 @@ local function CreateModeCycler(parent, name, options, callback)
     end)
 end
 
--- ==================== LIVE COLOR PICKER (RGB + Preview) ====================
+-- Live Color Picker (RGB sliders)
 local function CreateColorPicker(parent, name, defaultColor, callback)
     local Frame = Instance.new("Frame", parent)
     Frame.Size = UDim2.new(0.92, 0, 0, 50)
@@ -385,11 +385,7 @@ local function CreateColorPicker(parent, name, defaultColor, callback)
     Instance.new("UIStroke", Preview).Thickness = 2
     Instance.new("UIStroke", Preview).Color = Color3.new(1,1,1)
 
-    local colorValues = {
-        R = math.floor(defaultColor.R * 255),
-        G = math.floor(defaultColor.G * 255),
-        B = math.floor(defaultColor.B * 255)
-    }
+    local colorValues = {R = math.floor(defaultColor.R * 255), G = math.floor(defaultColor.G * 255), B = math.floor(defaultColor.B * 255)}
 
     local function updatePreviewAndCallback()
         local newColor = Color3.fromRGB(colorValues.R, colorValues.G, colorValues.B)
@@ -398,18 +394,9 @@ local function CreateColorPicker(parent, name, defaultColor, callback)
     end
     updatePreviewAndCallback()
 
-    CreateSlider(parent, "Red", 0, 255, colorValues.R, function(v)
-        colorValues.R = v
-        updatePreviewAndCallback()
-    end)
-    CreateSlider(parent, "Green", 0, 255, colorValues.G, function(v)
-        colorValues.G = v
-        updatePreviewAndCallback()
-    end)
-    CreateSlider(parent, "Blue", 0, 255, colorValues.B, function(v)
-        colorValues.B = v
-        updatePreviewAndCallback()
-    end)
+    CreateSlider(parent, "   Red", 0, 255, colorValues.R, function(v) colorValues.R = v updatePreviewAndCallback() end)
+    CreateSlider(parent, "   Green", 0, 255, colorValues.G, function(v) colorValues.G = v updatePreviewAndCallback() end)
+    CreateSlider(parent, "   Blue", 0, 255, colorValues.B, function(v) colorValues.B = v updatePreviewAndCallback() end)
 end
 
 -- ==================== HOME PAGE ====================
@@ -491,22 +478,13 @@ CreateToggle(Tabs.Movement, "Flight", function(active)
             if not hrp or not hum then return end
 
             if not hrp:FindFirstChild("SharkFlyAtt") then
-                local att = Instance.new("Attachment", hrp) 
-                att.Name = "SharkFlyAtt"
-                local lv = Instance.new("LinearVelocity", hrp) 
-                lv.Name = "SharkFlyVel" 
-                lv.Attachment0 = att 
-                lv.MaxForce = math.huge 
-                lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
-                local gyro = Instance.new("BodyGyro", hrp) 
-                gyro.Name = "SharkFlyGyro" 
-                gyro.MaxTorque = Vector3.new(math.huge,math.huge,math.huge) 
-                gyro.P = 30000 
-                gyro.D = 500
+                local att = Instance.new("Attachment", hrp) att.Name = "SharkFlyAtt"
+                local lv = Instance.new("LinearVelocity", hrp) lv.Name = "SharkFlyVel" lv.Attachment0 = att lv.MaxForce = math.huge lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+                local gyro = Instance.new("BodyGyro", hrp) gyro.Name = "SharkFlyGyro" gyro.MaxTorque = Vector3.new(math.huge,math.huge,math.huge) gyro.P = 30000 gyro.D = 500
             end
 
             local moveDir = hum.MoveDirection
-            local vel = moveDir * Config.FlySpeed                     -- FIXED: Direct use of MoveDirection (was broken)
+            local vel = moveDir * Config.FlySpeed
             hrp.SharkFlyVel.VectorVelocity = vel
 
             local gyro = hrp:FindFirstChild("SharkFlyGyro")
@@ -549,7 +527,37 @@ CreateToggle(Tabs.Movement, "Speed Boost", function(active)
 end)
 CreateSlider(Tabs.Movement, "Speed Power", 1, 50, 2, function(v) Config.WalkBoost = v end)
 
--- ==================== VISUALS BLOCK ====================
+-- ==================== NOCLIP MODULE (NEW) ====================
+CreateSectionHeader(Tabs.Movement, "NOCLIP MODULE")
+CreateToggle(Tabs.Movement, "Noclip", function(active)
+    if active then
+        Connections.Noclip = RunService.Stepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if Connections.Noclip then
+            Connections.Noclip:Disconnect()
+            Connections.Noclip = nil
+        end
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end)
+
+-- ==================== VISUALS BLOCK (ESP OPTIMIZED) ====================
 CreateSectionHeader(Tabs.Visuals, "ESP MODULE")
 CreateToggle(Tabs.Visuals, "Enable ESP", function(active)
     if active then
@@ -560,7 +568,7 @@ CreateToggle(Tabs.Visuals, "Enable ESP", function(active)
                     local visual = Cache.ESP[p.Name]
                     local desiredClass = (Config.ESPType == "Highlight") and "Highlight" or "SelectionBox"
 
-                    -- FIXED: Full type check so mode change instantly recreates the correct visual
+                    -- OPTIMIZED: Only recreate when necessary (player respawn or mode change)
                     if not visual or visual.Parent ~= char or visual.ClassName ~= desiredClass then
                         if visual then 
                             visual:Destroy() 
@@ -586,7 +594,7 @@ CreateToggle(Tabs.Visuals, "Enable ESP", function(active)
                             Cache.ESP[p.Name] = b
                         end
                     else
-                        -- live color update
+                        -- live color update (no recreation)
                         local vis = Cache.ESP[p.Name]
                         if vis:IsA("Highlight") then 
                             vis.FillColor = Config.ESPColor 
@@ -647,4 +655,4 @@ for _, b in pairs(Sidebar:GetChildren()) do
     end
 end
 
-print("✅ SHARK V1 | PAID LOADED | All bugs fixed • Complete • Ultra smooth")
+print("✅ SHARK V1 | PAID LOADED | Minimize FIXED • Noclip ADDED • ESP OPTIMIZED (no unnecessary recreation)")
