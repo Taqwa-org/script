@@ -1,5 +1,5 @@
--- Dead Rails Safe Utility (Anti-Cheat / Rubberband Bypass)
--- 3 Buttons: Fly & Ghost (Normal Speed), True Fullbright, Auto-Collect Aura
+-- Dead Rails Safe Utility v3 (Rubberband & Anti-Cheat Bypass)
+-- 3 Buttons: Stealth Fly & Ghost, True Fullbright, Auto-Collect Aura
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -109,7 +109,7 @@ minBtn.MouseButton1Click:Connect(function()
     minBtn.Text = minimized and "+" or "-"
 end)
 
--- UI BUTTON GENERATOR (EXACTLY 3 BUTTONS)
+-- EXACTLY 3 BUTTONS
 local function createButton(yOffset, defaultText)
     local btn = Instance.new("TextButton", body)
     btn.Size = UDim2.new(0.8, 0, 0, 40)
@@ -157,18 +157,17 @@ upBtn.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.To
 downBtn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = true end end)
 downBtn.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = false end end)
 
--- ============== FLY & GHOST MODE (SAFE SPEED) ==============
+-- ============== STEALTH FLY & GHOST MODE ==============
 local flying = false
 local flyConnection
 local bodyVelocity, bodyGyro
 
--- Update character variables upon dying so the script doesn't break
+-- Keep character references safe
 plr.CharacterAdded:Connect(function(newChar)
     char = newChar
     hrp = char:WaitForChild("HumanoidRootPart")
     humanoid = char:WaitForChild("Humanoid")
     
-    -- Turn off fly if they died to prevent bugs
     if flying then
         flyBtn.Text = "Fly & Ghost Mode: OFF"
         flyBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
@@ -188,7 +187,6 @@ flyBtn.MouseButton1Click:Connect(function()
         
         if hrp and humanoid then
             hrp.Anchored = false
-            humanoid.PlatformStand = true 
             
             bodyVelocity = Instance.new("BodyVelocity")
             bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
@@ -205,18 +203,10 @@ flyBtn.MouseButton1Click:Connect(function()
         flyConnection = RunService.RenderStepped:Connect(function()
             if not char or not hrp or not humanoid then return end
             
-            -- Ghost Mode (Immune to touch kill-bricks, pass through walls)
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                    part.CanTouch = false 
-                end
-            end
-            
-            -- NORMAL SPEED (Prevents Rubberbanding)
-            -- Matches exactly how fast the game allows you to walk
-            local currentSafeSpeed = humanoid.WalkSpeed 
-            if currentSafeSpeed < 16 then currentSafeSpeed = 16 end 
+            -- STEALTH NOCLIP: Uses built-in Roblox NoPhysics state.
+            -- This lets you glide through walls without deleting your hitboxes,
+            -- meaning the Server's Zone trackers still know exactly where you are!
+            humanoid:ChangeState(11) -- Enum.HumanoidStateType.RunningNoPhysics
             
             local moveVector = Vector3.new(0, 0, 0)
             pcall(function()
@@ -232,8 +222,9 @@ flyBtn.MouseButton1Click:Connect(function()
             
             if flyDir.Magnitude > 0 then flyDir = flyDir.Unit end
             
+            -- SAFE SPEED: Locked strictly to 16 (Normal Roblox WalkSpeed)
             if bodyVelocity and bodyGyro then
-                bodyVelocity.Velocity = flyDir * currentSafeSpeed -- SAFE SPEED HERE
+                bodyVelocity.Velocity = flyDir * 16
                 bodyGyro.CFrame = camCFrame
             end
         end)
@@ -248,16 +239,7 @@ flyBtn.MouseButton1Click:Connect(function()
         if bodyVelocity then bodyVelocity:Destroy() end
         if bodyGyro then bodyGyro:Destroy() end
         
-        if humanoid then humanoid.PlatformStand = false end
-        
-        if char then
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                    part.CanTouch = true
-                end
-            end
-        end
+        if humanoid then humanoid:ChangeState(8) end -- Reset to standard state
     end
 end)
 
@@ -308,7 +290,7 @@ local auraEnabled = false
 local collectRadius = 45 
 local cachedPrompts = {}
 
--- Background cache generation
+-- Safely caches objects so it doesn't drop your mobile frames
 for _, v in pairs(Workspace:GetDescendants()) do
     if v:IsA("ProximityPrompt") then table.insert(cachedPrompts, v) end
 end
@@ -347,7 +329,6 @@ task.spawn(function()
                         local objectName = prompt.ObjectText:lower()
                         local name = part.Name:lower()
                         
-                        -- Target logic
                         if action:find("collect") or action:find("search") or action:find("take") or name:find("bond") or objectName:find("bond") or name:find("safe") or name:find("cash") then
                             
                             prompt.RequiresLineOfSight = false
@@ -366,4 +347,4 @@ task.spawn(function()
     end
 end)
 
-print("✅ Anti-Cheat Safe Mobile Utility Loaded!")
+print("✅ Rubberband-Proof Mobile Utility Loaded!")
