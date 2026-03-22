@@ -1,5 +1,5 @@
--- Dead Rails: "Quantum Blink & Drone Scout" Utility (FIXED DYNAMIC STREAMING)
--- Explores with Freecam -> Uses Thick-Flicker TP & Radius Spoofing to force-load Items/Mobs and bypass rubberbands!
+-- Dead Rails: "Quantum Blink & Drone Scout" Utility (V3 - ABSOLUTE HOLD)
+-- Explores with Freecam -> Uses Absolute Anchor Hold to FORCE load dynamic chunks (Mobs/Items)
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -70,7 +70,7 @@ local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(0.6, 0, 1, 0)
 title.Position = UDim2.new(0.05, 0, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "Dead Rails Quantum Loot"
+title.Text = "Dead Rails | Force Streamer"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
@@ -174,7 +174,6 @@ droneBtn.MouseButton1Click:Connect(function()
         
         if UserInputService.TouchEnabled then mobileFlyUI.Visible = true end
         
-        -- Lock real character in place safely
         if hrp then 
             hrp.Anchored = true 
             hrp.Velocity = Vector3.new(0,0,0)
@@ -221,68 +220,60 @@ droneBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ============== QUANTUM BLINK & LOOT LOGIC (FIXED) ==============
+-- ============== QUANTUM BLINK & LOOT (ABSOLUTE HOLD) ==============
 local isQuantumLooting = false
 
 forceTpBtn.MouseButton1Click:Connect(function()
     if not hrp or isQuantumLooting then return end
     
     isQuantumLooting = true
-    forceTpBtn.Text = "STREAMING MOBS & LOOT..."
+    forceTpBtn.Text = "LOADING MOBS/LOOT (WAIT 6s)"
     forceTpBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
     
     local safeCF = hrp.CFrame
     local targetCF = dronePart and dronePart.CFrame or Workspace.CurrentCamera.CFrame
     
-    -- 1. SPOOF SIMULATION RADIUS: Force server to drop items & mobs
-    pcall(function()
-        if sethiddenproperty then
-            sethiddenproperty(plr, "SimulationRadius", 100000)
-            sethiddenproperty(plr, "MaxSimulationRadius", 100000)
-        end
-    end)
-    
-    -- 2. LOAD STATIC CHUNKS: Gets the buildings & terrain first
+    -- Request Stream Intentionally
     pcall(function() plr:RequestStreamAroundAsync(targetCF.Position) end)
     
-    hrp.Anchored = false
+    -- Prepare character for noclip bypass
+    hrp.Anchored = true
+    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
     for _, part in ipairs(char:GetDescendants()) do
         if part:IsA("BasePart") then part.CanTouch = false end
     end
     
-    local tickCount = 0
-    -- 3. THE "THICK FLICKER" LOOP: Bypasses Rubberbands while loading Items/Mobs
-    local flickerConn = RunService.Heartbeat:Connect(function()
-        tickCount = tickCount + 1
-        -- Dwell at the target for 5 frames (Allows server to spawn mobs & items)
-        -- Snap back to safe spot for 1 frame (Clears anti-cheat distance checks)
-        if tickCount % 6 <= 4 then
-            hrp.CFrame = targetCF 
-        else
-            hrp.CFrame = safeCF   
-        end
-        hrp.Velocity = Vector3.new(0, 0, 0)
+    -- THE ABSOLUTE HOLD: Force position to overpower anti-cheat rubberbands.
+    -- Because we NEVER return to safeCF during this loop, the server is FORCED to send dynamic objects.
+    local holdConn = RunService.Heartbeat:Connect(function()
+        hrp.CFrame = targetCF
+        hrp.Velocity = Vector3.new(0,0,0)
     end)
     
-    -- 4. AGGRESSIVE DYNAMIC SCANNER
     task.spawn(function()
         local startTick = tick()
-        -- Wait 5.5 seconds (Increased so server has time to process the dynamic objects)
-        while tick() - startTick < 5.5 do
+        
+        -- Dwell at the location for exactly 6 seconds.
+        -- This is the required time for the Roblox engine to clear the queue and stream Mobs/Items.
+        while tick() - startTick < 6 do
             for _, prompt in ipairs(Workspace:GetDescendants()) do
                 if prompt:IsA("ProximityPrompt") and prompt.Parent and prompt.Parent:IsA("BasePart") then
                     local dist = (prompt.Parent.Position - targetCF.Position).Magnitude
+                    
                     if dist <= 60 then
                         local action = prompt.ActionText:lower()
                         local objectName = prompt.ObjectText:lower()
                         local name = prompt.Parent.Name:lower()
                         
-                        -- Target specifically Dead Rails loot and bonds
+                        -- Look specifically for loot, crates, bonds, etc.
                         if action:find("collect") or action:find("search") or action:find("take") or name:find("bond") or objectName:find("bond") or name:find("safe") or name:find("cash") then
                             prompt.RequiresLineOfSight = false
                             prompt.HoldDuration = 0
                             prompt.MaxActivationDistance = 60
                             pcall(function() fireproximityprompt(prompt) end)
+                            
+                            -- Mark looted so we don't spam it
+                            prompt.Parent.Name = prompt.Parent.Name .. "_looted"
                         end
                     end
                 end
@@ -290,17 +281,17 @@ forceTpBtn.MouseButton1Click:Connect(function()
             task.wait(0.25)
         end
         
-        -- End the Flicker Safely
-        flickerConn:Disconnect()
+        -- Disconnect the absolute hold and safely return home
+        holdConn:Disconnect()
         hrp.CFrame = safeCF
         hrp.Velocity = Vector3.new(0,0,0)
         
-        -- Restore hitboxes
+        -- Restore proper physics
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        if not droning then hrp.Anchored = false end
         for _, part in ipairs(char:GetDescendants()) do
             if part:IsA("BasePart") then part.CanTouch = true end
         end
-        
-        if droning then hrp.Anchored = true end
         
         isQuantumLooting = false
         forceTpBtn.Text = "⚡ Quantum Blink & Loot"
@@ -367,14 +358,6 @@ end)
 task.spawn(function()
     while task.wait(0.5) do
         if auraEnabled and hrp and not isQuantumLooting then
-            -- Passively boost simulation radius to guarantee nearby items load
-            pcall(function()
-                if sethiddenproperty then
-                    sethiddenproperty(plr, "SimulationRadius", 100000)
-                    sethiddenproperty(plr, "MaxSimulationRadius", 100000)
-                end
-            end)
-            
             for _, prompt in ipairs(Workspace:GetDescendants()) do
                 if prompt:IsA("ProximityPrompt") and prompt.Parent and prompt.Parent:IsA("BasePart") then
                     local dist = (prompt.Parent.Position - hrp.Position).Magnitude
@@ -412,4 +395,4 @@ plr.CharacterAdded:Connect(function(newChar)
     end
 end)
 
-print("✅ Thick Flicker & Dynamic Streaming Loaded Successfully!")
+print("✅ Force Streamer Loaded Successfully!")
