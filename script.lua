@@ -1,5 +1,5 @@
--- Dead Rails Safe Utility v3 (Rubberband & Anti-Cheat Bypass)
--- 3 Buttons: Stealth Fly & Ghost, True Fullbright, Auto-Collect Aura
+-- Dead Rails: "Drone Scout & Ghost TP" Utility
+-- Explores the map with an undetectable Freecam, then Force-Teleports to load chunks and loot.
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -14,18 +14,18 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 local humanoid = char:WaitForChild("Humanoid")
 
 -- ============== GUI CREATION ==============
-local existingGui = plr:WaitForChild("PlayerGui"):FindFirstChild("DeadRailsSafeUtility") or CoreGui:FindFirstChild("DeadRailsSafeUtility")
+local existingGui = plr:WaitForChild("PlayerGui"):FindFirstChild("DeadRailsDroneUtility") or CoreGui:FindFirstChild("DeadRailsDroneUtility")
 if existingGui then existingGui:Destroy() end
 
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "DeadRailsSafeUtility"
+screenGui.Name = "DeadRailsDroneUtility"
 screenGui.ResetOnSpawn = false
 local success = pcall(function() screenGui.Parent = CoreGui end)
 if not success then screenGui.Parent = plr:WaitForChild("PlayerGui") end
 
 -- MAIN FRAME
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 320, 0, 210)
+mainFrame.Size = UDim2.new(0, 320, 0, 260) -- Taller to fit 4 buttons
 mainFrame.Position = UDim2.new(0.5, -160, 0.2, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
@@ -33,7 +33,7 @@ mainFrame.Active = true
 mainFrame.Parent = screenGui
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
 
--- Touch/Mouse Smooth Dragging
+-- Smooth Dragging
 local dragging, dragInput, dragStart, startPos
 mainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -70,7 +70,7 @@ local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(0.6, 0, 1, 0)
 title.Position = UDim2.new(0.05, 0, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "Dead Rails Utility"
+title.Text = "Dead Rails Drone Scout"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 15
@@ -105,17 +105,17 @@ local minimized = false
 minBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     body.Visible = not minimized
-    mainFrame.Size = minimized and UDim2.new(0, 320, 0, 35) or UDim2.new(0, 320, 0, 210)
+    mainFrame.Size = minimized and UDim2.new(0, 320, 0, 35) or UDim2.new(0, 320, 0, 260)
     minBtn.Text = minimized and "+" or "-"
 end)
 
--- EXACTLY 3 BUTTONS
-local function createButton(yOffset, defaultText)
+-- UI BUTTON GENERATOR
+local function createButton(yOffset, defaultText, color)
     local btn = Instance.new("TextButton", body)
     btn.Size = UDim2.new(0.8, 0, 0, 40)
     btn.Position = UDim2.new(0.1, 0, 0, yOffset)
-    btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    btn.Text = defaultText .. ": OFF"
+    btn.BackgroundColor3 = color or Color3.fromRGB(200, 50, 50)
+    btn.Text = defaultText
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 14
@@ -123,9 +123,10 @@ local function createButton(yOffset, defaultText)
     return btn
 end
 
-local flyBtn = createButton(15, "Fly & Ghost Mode")
-local fullbrightBtn = createButton(65, "True Fullbright")
-local auraBtn = createButton(115, "Auto Collect")
+local droneBtn = createButton(15, "Drone Scout (Freecam): OFF")
+local forceTpBtn = createButton(65, "⚡ Force TP & Load Here", Color3.fromRGB(200, 120, 30))
+local fullbrightBtn = createButton(115, "True Fullbright: OFF")
+local auraBtn = createButton(165, "Auto Collect: OFF")
 
 -- ============== MOBILE FLY CONTROLS ==============
 local mobileFlyUI = Instance.new("Frame", screenGui)
@@ -157,56 +158,39 @@ upBtn.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.To
 downBtn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = true end end)
 downBtn.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then downPressed = false end end)
 
--- ============== STEALTH FLY & GHOST MODE ==============
-local flying = false
-local flyConnection
-local bodyVelocity, bodyGyro
+-- ============== DRONE SCOUT LOGIC (UNDETECTABLE) ==============
+local droning = false
+local dronePart = nil
+local droneSpeed = 150 -- Super fast speed!
+local droneConnection
 
--- Keep character references safe
-plr.CharacterAdded:Connect(function(newChar)
-    char = newChar
-    hrp = char:WaitForChild("HumanoidRootPart")
-    humanoid = char:WaitForChild("Humanoid")
+droneBtn.MouseButton1Click:Connect(function()
+    droning = not droning
+    local cam = Workspace.CurrentCamera
     
-    if flying then
-        flyBtn.Text = "Fly & Ghost Mode: OFF"
-        flyBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        flying = false
-        mobileFlyUI.Visible = false
-        if flyConnection then flyConnection:Disconnect() end
-    end
-end)
-
-flyBtn.MouseButton1Click:Connect(function()
-    flying = not flying
-    if flying then
-        flyBtn.Text = "Fly & Ghost Mode: ON"
-        flyBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    if droning then
+        droneBtn.Text = "Drone Scout (Freecam): ON"
+        droneBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         if UserInputService.TouchEnabled then mobileFlyUI.Visible = true end
         
-        if hrp and humanoid then
-            hrp.Anchored = false
-            
-            bodyVelocity = Instance.new("BodyVelocity")
-            bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-            bodyVelocity.Parent = hrp
-            
-            bodyGyro = Instance.new("BodyGyro")
-            bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-            bodyGyro.P = 10000
-            bodyGyro.CFrame = hrp.CFrame
-            bodyGyro.Parent = hrp
-        end
+        -- Lock real character in place safely
+        if hrp then hrp.Anchored = true end
         
-        flyConnection = RunService.RenderStepped:Connect(function()
-            if not char or not hrp or not humanoid then return end
-            
-            -- STEALTH NOCLIP: Uses built-in Roblox NoPhysics state.
-            -- This lets you glide through walls without deleting your hitboxes,
-            -- meaning the Server's Zone trackers still know exactly where you are!
-            humanoid:ChangeState(11) -- Enum.HumanoidStateType.RunningNoPhysics
+        -- Create invisible drone
+        dronePart = Instance.new("Part")
+        dronePart.Size = Vector3.new(1, 1, 1)
+        dronePart.Transparency = 1
+        dronePart.CanCollide = false
+        dronePart.Anchored = true
+        if hrp then dronePart.CFrame = hrp.CFrame end
+        dronePart.Parent = Workspace
+        
+        -- Attach camera to drone natively (allows mobile swiping/mouse look to work)
+        cam.CameraSubject = dronePart
+        
+        droneConnection = RunService.RenderStepped:Connect(function(dt)
+            if not dronePart then return end
             
             local moveVector = Vector3.new(0, 0, 0)
             pcall(function()
@@ -214,33 +198,56 @@ flyBtn.MouseButton1Click:Connect(function()
                 moveVector = controlModule:GetMoveVector()
             end)
             
-            local camCFrame = Workspace.CurrentCamera.CFrame
-            local flyDir = (camCFrame.RightVector * moveVector.X) + (camCFrame.LookVector * -moveVector.Z)
+            -- Move relative to where the camera is looking
+            local flyDir = (cam.CFrame.RightVector * moveVector.X) + (cam.CFrame.LookVector * -moveVector.Z)
             
             if UserInputService:IsKeyDown(Enum.KeyCode.Space) or upPressed then flyDir = flyDir + Vector3.new(0, 1, 0) end
             if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or downPressed then flyDir = flyDir - Vector3.new(0, 1, 0) end
             
             if flyDir.Magnitude > 0 then flyDir = flyDir.Unit end
             
-            -- SAFE SPEED: Locked strictly to 16 (Normal Roblox WalkSpeed)
-            if bodyVelocity and bodyGyro then
-                bodyVelocity.Velocity = flyDir * 16
-                bodyGyro.CFrame = camCFrame
-            end
+            -- Move the invisible drone
+            dronePart.Position = dronePart.Position + (flyDir * droneSpeed * dt)
         end)
     else
-        flyBtn.Text = "Fly & Ghost Mode: OFF"
-        flyBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        
+        droneBtn.Text = "Drone Scout (Freecam): OFF"
+        droneBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         mobileFlyUI.Visible = false
         upPressed, downPressed = false, false
         
-        if flyConnection then flyConnection:Disconnect() end
-        if bodyVelocity then bodyVelocity:Destroy() end
-        if bodyGyro then bodyGyro:Destroy() end
+        if droneConnection then droneConnection:Disconnect() end
+        if dronePart then dronePart:Destroy() end
         
-        if humanoid then humanoid:ChangeState(8) end -- Reset to standard state
+        -- Reset camera back to character
+        if humanoid then cam.CameraSubject = humanoid end
+        if hrp then hrp.Anchored = false end
     end
+end)
+
+-- ============== GHOST LOAD & TP (YOUR IDEA) ==============
+forceTpBtn.MouseButton1Click:Connect(function()
+    if not hrp then return end
+    
+    -- Teleport to the drone (or current camera if drone is off)
+    local targetCFrame = dronePart and dronePart.CFrame or Workspace.CurrentCamera.CFrame
+    
+    forceTpBtn.Text = "LOADING CHUNKS..."
+    forceTpBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
+    
+    -- The Anti-Rubberband Spam
+    -- Teleports you 30 times in 1.5 seconds. The server tries to rubberband you, 
+    -- but your client says "NO, I am here" repeatedly until the server gives up 
+    -- and successfully loads the vault/bonds.
+    task.spawn(function()
+        for i = 1, 30 do
+            if not hrp or not hrp.Parent then break end
+            hrp.CFrame = targetCFrame
+            hrp.Velocity = Vector3.new(0,0,0)
+            task.wait(0.05)
+        end
+        forceTpBtn.Text = "⚡ Force TP & Load Here"
+        forceTpBtn.BackgroundColor3 = Color3.fromRGB(200, 120, 30)
+    end)
 end)
 
 -- ============== TRUE FULLBRIGHT ==============
@@ -290,7 +297,6 @@ local auraEnabled = false
 local collectRadius = 45 
 local cachedPrompts = {}
 
--- Safely caches objects so it doesn't drop your mobile frames
 for _, v in pairs(Workspace:GetDescendants()) do
     if v:IsA("ProximityPrompt") then table.insert(cachedPrompts, v) end
 end
@@ -347,4 +353,19 @@ task.spawn(function()
     end
 end)
 
-print("✅ Rubberband-Proof Mobile Utility Loaded!")
+-- Character safe reset
+plr.CharacterAdded:Connect(function(newChar)
+    char = newChar
+    hrp = char:WaitForChild("HumanoidRootPart")
+    humanoid = char:WaitForChild("Humanoid")
+    if droning then
+        droneBtn.Text = "Drone Scout (Freecam): OFF"
+        droneBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        droning = false
+        mobileFlyUI.Visible = false
+        if droneConnection then droneConnection:Disconnect() end
+        if dronePart then dronePart:Destroy() end
+    end
+end)
+
+print("✅ Drone Scout + Ghost TP Loaded!")
