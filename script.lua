@@ -1,5 +1,5 @@
--- FIXED Dead Rails Auto Bond Script (GUI ALWAYS shows)
--- Fully integrated GUI & Improved bond detection
+-- FIXED Dead Rails Auto Bond Script
+-- Added Tweening (Anti-Rubberband), Noclip, and Instant Collect
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
 
 local plr = Players.LocalPlayer
 local char = plr.Character or plr.CharacterAdded:Wait()
@@ -19,7 +20,6 @@ plr.CharacterAdded:Connect(function(newChar)
 end)
 
 -- ============== GUI CREATION ==============
--- Clean up old GUI if it already exists
 local existingGui = plr:WaitForChild("PlayerGui"):FindFirstChild("DeadRailsAutoBond") or CoreGui:FindFirstChild("DeadRailsAutoBond")
 if existingGui then
     existingGui:Destroy()
@@ -28,7 +28,6 @@ end
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "DeadRailsAutoBond"
 screenGui.ResetOnSpawn = false
--- Protect GUI if executor supports it, otherwise put in PlayerGui
 local success = pcall(function() screenGui.Parent = CoreGui end)
 if not success then screenGui.Parent = plr:WaitForChild("PlayerGui") end
 
@@ -73,17 +72,12 @@ end)
 
 -- Header
 local header = Instance.new("Frame")
-header.Name = "Header"
 header.Size = UDim2.new(1, 0, 0, 35)
 header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-header.BorderSizePixel = 0
 header.Parent = mainFrame
-
 local headerCorner = Instance.new("UICorner")
 headerCorner.CornerRadius = UDim.new(0, 8)
 headerCorner.Parent = header
-
--- Fix bottom corners of header
 local headerBottomCover = Instance.new("Frame")
 headerBottomCover.Size = UDim2.new(1, 0, 0, 8)
 headerBottomCover.Position = UDim2.new(0, 0, 1, -8)
@@ -91,62 +85,49 @@ headerBottomCover.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 headerBottomCover.BorderSizePixel = 0
 headerBottomCover.Parent = header
 
--- Title
 local title = Instance.new("TextLabel")
-title.Name = "Title"
 title.Size = UDim2.new(0.6, 0, 1, 0)
 title.Position = UDim2.new(0.05, 0, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "Dead Rails Auto Bond"
+title.Text = "Dead Rails Fast Auto Bond"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 16
 title.Font = Enum.Font.GothamBold
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = header
 
--- Close Button
 local closeBtn = Instance.new("TextButton")
-closeBtn.Name = "CloseBtn"
 closeBtn.Size = UDim2.new(0, 25, 0, 25)
 closeBtn.Position = UDim2.new(1, -30, 0.5, -12.5)
 closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 closeBtn.Text = "X"
 closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 12
 closeBtn.Parent = header
-
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 6)
 closeCorner.Parent = closeBtn
 
--- Minimize Button
 local minBtn = Instance.new("TextButton")
-minBtn.Name = "MinBtn"
 minBtn.Size = UDim2.new(0, 25, 0, 25)
 minBtn.Position = UDim2.new(1, -60, 0.5, -12.5)
 minBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 minBtn.Text = "-"
 minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 minBtn.Font = Enum.Font.GothamBold
-minBtn.TextSize = 16
 minBtn.Parent = header
-
 local minCorner = Instance.new("UICorner")
 minCorner.CornerRadius = UDim.new(0, 6)
 minCorner.Parent = minBtn
 
 -- Body Container
 local body = Instance.new("Frame")
-body.Name = "Body"
 body.Size = UDim2.new(1, 0, 1, -35)
 body.Position = UDim2.new(0, 0, 0, 35)
 body.BackgroundTransparency = 1
 body.Parent = mainFrame
 
--- Toggle Button
 local toggleBtn = Instance.new("TextButton")
-toggleBtn.Name = "ToggleBtn"
 toggleBtn.Size = UDim2.new(0.8, 0, 0, 40)
 toggleBtn.Position = UDim2.new(0.1, 0, 0.25, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
@@ -155,14 +136,11 @@ toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.Font = Enum.Font.GothamBold
 toggleBtn.TextSize = 16
 toggleBtn.Parent = body
-
 local toggleCorner = Instance.new("UICorner")
 toggleCorner.CornerRadius = UDim.new(0, 6)
 toggleCorner.Parent = toggleBtn
 
--- Status Label
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Name = "StatusLabel"
 statusLabel.Size = UDim2.new(0.9, 0, 0, 30)
 statusLabel.Position = UDim2.new(0.05, 0, 0.65, 0)
 statusLabel.BackgroundTransparency = 1
@@ -170,13 +148,14 @@ statusLabel.Text = "Status: Idle"
 statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 statusLabel.Font = Enum.Font.Gotham
 statusLabel.TextSize = 14
-statusLabel.TextWrapped = true
 statusLabel.Parent = body
 
 -- State variables
 local enabled = false
 local autoThread = nil
 local minimized = false
+local isMoving = false
+local TWEEN_SPEED = 250 -- Studs per second. High enough to be fast, low enough to bypass anticheat.
 
 -- GUI Click Logic
 closeBtn.MouseButton1Click:Connect(function()
@@ -197,13 +176,22 @@ minBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+-- ============== NOCLIP (Only active when moving to bond) ==============
+RunService.Stepped:Connect(function()
+    if enabled and isMoving and char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
 -- ============== Remote fallback / guess ==============
 local remote
 do
     local pkg = ReplicatedStorage:FindFirstChild("Packages")
-    if pkg then
-        remote = pkg:FindFirstChild("ActivateObjectClient")
-    end
+    if pkg then remote = pkg:FindFirstChild("ActivateObjectClient") end
     if not remote then
         for _, v in ReplicatedStorage:GetDescendants() do
             if v:IsA("RemoteEvent") and (v.Name:lower():find("collect") or v.Name:lower():find("pickup") or v.Name:lower():find("interact") or v.Name:lower():find("activate")) then
@@ -245,6 +233,26 @@ local function findBonds()
     return candidates
 end
 
+-- ============== TWEEN FUNCTION (Anti-Cheat Bypass) ==============
+local function tweenTo(targetCFrame)
+    if not hrp or not hrp.Parent then return end
+    
+    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    local timeToTake = distance / TWEEN_SPEED
+    if timeToTake < 0.1 then timeToTake = 0.1 end -- Ensure a minimum tween time
+    
+    local tweenInfo = TweenInfo.new(timeToTake, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+    
+    isMoving = true
+    hrp.Anchored = true -- Anchor to prevent gravity/anticheat dragging you down
+    
+    tween:Play()
+    tween.Completed:Wait()
+    
+    isMoving = false
+end
+
 -- ============== AUTO BOND LOGIC ==============
 toggleBtn.MouseButton1Click:Connect(function()
     enabled = not enabled
@@ -256,7 +264,6 @@ toggleBtn.MouseButton1Click:Connect(function()
         
         autoThread = coroutine.create(function()
             while enabled do
-                -- Check if character is currently alive & spawned
                 if not hrp or not hrp.Parent then
                     task.wait(1)
                     continue
@@ -265,36 +272,40 @@ toggleBtn.MouseButton1Click:Connect(function()
                 local bonds = findBonds()
                 
                 if #bonds > 0 then
-                    statusLabel.Text = "Found " .. #bonds .. " bond(s) - collecting..."
+                    statusLabel.Text = "Tweening to " .. #bonds .. " bond(s)..."
                     
                     for _, bond in bonds do
                         if not enabled or not hrp or not hrp.Parent then break end
                         
-                        -- Safe tp above
-                        hrp.CFrame = bond.part.CFrame * CFrame.new(0, 4.5, 0)
-                        task.wait(0.35) 
+                        -- Smoothly fly to the bond (No TP back)
+                        tweenTo(bond.part.CFrame * CFrame.new(0, 3.5, 0))
                         
-                        -- Try remote fire
+                        -- FIRE IMMEDIATELY (Fast collect)
                         if remote then
                             pcall(function() remote:FireServer(bond.obj) end)
                         end
                         
-                        -- Fallback: fire proximity / click if exists
                         local prompt = bond.obj:FindFirstChildOfClass("ProximityPrompt") or bond.part:FindFirstChildOfClass("ProximityPrompt")
                         if prompt then
+                            prompt.HoldDuration = 0 -- Bypass hold time
                             pcall(function() fireproximityprompt(prompt) end)
                         end
                         
-                        -- Mark to avoid re-collect spam
+                        -- Rename to stop it from targeting the same bond repeatedly
                         bond.obj.Name = bond.obj.Name .. "_collected"
                         
-                        task.wait(0.4)
+                        -- Extremely short wait just to let the server register
+                        task.wait(0.05) 
                     end
+                    
+                    -- Unanchor when done with the queue so you can move normally again
+                    if hrp then hrp.Anchored = false end
                 else
+                    if hrp then hrp.Anchored = false end
                     statusLabel.Text = "No bonds found - scanning map..."
                 end
                 
-                task.wait(0.6)  -- main loop delay
+                task.wait(0.2)  -- Faster loop delay
             end
         end)
         
@@ -304,7 +315,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.Text = "Auto Bond: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         statusLabel.Text = "Status: Idle"
+        isMoving = false
+        if hrp then hrp.Anchored = false end
     end
 end)
-
-print("✅ Improved Auto Bond GUI loaded successfully!")
