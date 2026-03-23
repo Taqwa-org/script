@@ -2,7 +2,7 @@
 -- ESP (Players, Mobs, NPCs, All Entities)
 -- Full Bright
 -- Noclip
--- Free Cam
+-- Free Cam (Detached Camera, Character stays safe)
 -- Killaura
 -- Clock
 
@@ -15,31 +15,31 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
--- ==================== CREATE GUI (GORGEOUS OVERHAUL) ====================
+-- ==================== CREATE GUI ====================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SharkV1GUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Shadow Layer (Adds depth)
+-- Shadow Layer
 local Shadow = Instance.new("ImageLabel")
 Shadow.Name = "DropShadow"
 Shadow.BackgroundTransparency = 1
 Shadow.Position = UDim2.new(0.5, -170, 0.5, -215)
 Shadow.Size = UDim2.new(0, 340, 0, 430)
-Shadow.Image = "rbxassetid://4731308628" -- Smooth drop shadow asset
+Shadow.Image = "rbxassetid://4731308628" 
 Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
 Shadow.ImageTransparency = 0.4
 Shadow.ScaleType = Enum.ScaleType.Slice
 Shadow.SliceCenter = Rect.new(35, 35, 265, 265)
 Shadow.Parent = ScreenGui
 
--- Main Frame (Deep Ocean Theme)
+-- Main Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 310, 0, 400)
 MainFrame.Position = UDim2.new(0.5, -155, 0.5, -200)
-MainFrame.BackgroundColor3 = Color3.fromRGB(13, 15, 20) -- Deep midnight blue
+MainFrame.BackgroundColor3 = Color3.fromRGB(13, 15, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
@@ -73,54 +73,32 @@ Title.Size = UDim2.new(1, -110, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
 Title.Text = "SHARK V1"
-Title.TextColor3 = Color3.fromRGB(0, 225, 217) -- Neon Cyan
+Title.TextColor3 = Color3.fromRGB(0, 225, 217)
 Title.TextSize = 18
 Title.Font = Enum.Font.GothamBlack
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
--- Glow Effect for Title
-local TitleGlow = Title:Clone()
-TitleGlow.Name = "Glow"
-TitleGlow.Position = UDim2.new(0, 0, 0, 0)
-TitleGlow.ZIndex = Title.ZIndex - 1
-TitleGlow.TextTransparency = 0.6
-TitleGlow.TextColor3 = Color3.fromRGB(0, 255, 255)
-TitleGlow.Parent = Title
-local TitleBlur = Instance.new("UIStroke")
-TitleBlur.Color = Color3.fromRGB(0, 225, 217)
-TitleBlur.Thickness = 2
-TitleBlur.Transparency = 0.8
-TitleBlur.Parent = TitleGlow
+-- Window Controls (Fixed text style instead of dots)
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+MinimizeBtn.Position = UDim2.new(1, -70, 0.5, -15)
+MinimizeBtn.BackgroundTransparency = 1
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeBtn.TextSize = 28
+MinimizeBtn.Font = Enum.Font.GothamMedium
+MinimizeBtn.Parent = Header
 
--- Window Controls (Mac Style)
-local function createControlBtn(name, xPos, color, hoverColor)
-	local Btn = Instance.new("TextButton")
-	Btn.Name = name
-	Btn.Size = UDim2.new(0, 14, 0, 14)
-	Btn.Position = UDim2.new(1, xPos, 0.5, -7)
-	Btn.BackgroundColor3 = color
-	Btn.Text = ""
-	Btn.AutoButtonColor = false
-	Btn.Parent = Header
-	
-	local Corner = Instance.new("UICorner")
-	Corner.CornerRadius = UDim.new(1, 0)
-	Corner.Parent = Btn
-	
-	-- Hover Animation
-	Btn.MouseEnter:Connect(function()
-		TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor}):Play()
-	end)
-	Btn.MouseLeave:Connect(function()
-		TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = color}):Play()
-	end)
-	
-	return Btn
-end
-
-local MinimizeBtn = createControlBtn("Minimize", -55, Color3.fromRGB(245, 166, 35), Color3.fromRGB(255, 200, 80))
-local CloseBtn = createControlBtn("Close", -30, Color3.fromRGB(255, 95, 86), Color3.fromRGB(255, 130, 120))
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0.5, -15)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseBtn.TextSize = 20
+CloseBtn.Font = Enum.Font.GothamMedium
+CloseBtn.Parent = Header
 
 -- Divider Line
 local Divider = Instance.new("Frame")
@@ -151,41 +129,42 @@ BodyPadding.PaddingTop = UDim.new(0, 12)
 BodyPadding.PaddingBottom = UDim.new(0, 12)
 BodyPadding.Parent = Body
 
--- ==================== INTRO ANIMATION ====================
-MainFrame.Size = UDim2.new(0, 280, 0, 360)
-MainFrame.GroupTransparency = 1
-Shadow.ImageTransparency = 1
+-- ==================== FIXED DRAG LOGIC ====================
+local dragging
+local dragInput
+local dragStart
+local startPos
 
-TweenService:Create(MainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
-	Size = UDim2.new(0, 310, 0, 400),
-	GroupTransparency = 0
-}):Play()
-TweenService:Create(Shadow, TweenInfo.new(0.6, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
-	ImageTransparency = 0.4
-}):Play()
+local function update(input)
+	local delta = input.Position - dragStart
+	local dest = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	MainFrame.Position = dest
+	Shadow.Position = UDim2.new(dest.X.Scale, dest.X.Offset - 15, dest.Y.Scale, dest.Y.Offset - 15)
+end
 
--- ==================== DRAG LOGIC ====================
-local dragging, dragInput, dragStart, startPos
 Header.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true; dragStart = input.Position; startPos = MainFrame.Position
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+		
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
 	end
 end)
+
 Header.InputChanged:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 		dragInput = input
 	end
 end)
+
 UserInputService.InputChanged:Connect(function(input)
 	if input == dragInput and dragging then
-		local delta = input.Position - dragStart
-		MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		Shadow.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X - 15, startPos.Y.Scale, startPos.Y.Offset + delta.Y - 15)
-	end
-end)
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = false
+		update(input)
 	end
 end)
 
@@ -201,7 +180,6 @@ MinimizeBtn.MouseButton1Click:Connect(function()
 end)
 
 CloseBtn.MouseButton1Click:Connect(function()
-	-- Exit Animation
 	local t = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 250, 0, 320), GroupTransparency = 1})
 	TweenService:Create(Shadow, TweenInfo.new(0.3), {ImageTransparency = 1}):Play()
 	t:Play()
@@ -209,7 +187,7 @@ CloseBtn.MouseButton1Click:Connect(function()
 	ScreenGui:Destroy()
 end)
 
--- ==================== GORGEOUS TOGGLE CREATOR ====================
+-- ==================== TOGGLE CREATOR ====================
 local featureCallbacks = {} 
 
 local function CreateToggle(text, defaultState, callback)
@@ -259,19 +237,12 @@ local function CreateToggle(text, defaultState, callback)
 	KnobCorner.CornerRadius = UDim.new(1, 0)
 	KnobCorner.Parent = Knob
 
-	local KnobShadow = Instance.new("UIStroke")
-	KnobShadow.Color = Color3.fromRGB(0, 0, 0)
-	KnobShadow.Thickness = 1
-	KnobShadow.Transparency = 0.8
-	KnobShadow.Parent = Knob
-
 	local ClickArea = Instance.new("TextButton")
 	ClickArea.Size = UDim2.new(1, 0, 1, 0)
 	ClickArea.BackgroundTransparency = 1
 	ClickArea.Text = ""
 	ClickArea.Parent = ToggleFrame
 
-	-- Animations
 	local state = defaultState
 	local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
@@ -289,23 +260,13 @@ local function CreateToggle(text, defaultState, callback)
 		end
 	end
 
-	-- Hover effects
-	ClickArea.MouseEnter:Connect(function()
-		TweenService:Create(ToggleFrame, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(28, 33, 45)}):Play()
-	end)
-	ClickArea.MouseLeave:Connect(function()
-		TweenService:Create(ToggleFrame, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(22, 26, 35)}):Play()
-	end)
-
 	ClickArea.MouseButton1Click:Connect(function()
 		state = not state
 		UpdateVisual()
-		-- Pulse animation on click
 		local pulse = TweenService:Create(ToggleFrame, TweenInfo.new(0.1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = UDim2.new(0.9, 0, 0, 46)})
 		pulse:Play()
 		pulse.Completed:Wait()
 		TweenService:Create(ToggleFrame, TweenInfo.new(0.2, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Size = UDim2.new(0.92, 0, 0, 48)}):Play()
-		
 		callback(state)
 	end)
 
@@ -323,9 +284,9 @@ ScreenGui.Destroying:Connect(function()
 	end
 end)
 
--- ==================== FEATURES (UNCHANGED LOGIC) ====================
+-- ==================== FEATURES ====================
 
--- Universal Entity ESP (Players, Mobs, NPCs)
+-- Universal Entity ESP
 local espEnabled = false
 local highlights = {}
 
@@ -339,13 +300,11 @@ CreateToggle("Entity ESP", false, function(enabled)
 						if not highlights[obj] then
 							local hl = Instance.new("Highlight")
 							hl.Adornee = obj
-							
 							if Players:GetPlayerFromCharacter(obj) then
 								hl.FillColor = Color3.fromRGB(255, 60, 60)
 							else
-								hl.FillColor = Color3.fromRGB(0, 225, 217) -- Matches new theme
+								hl.FillColor = Color3.fromRGB(0, 225, 217)
 							end
-							
 							hl.OutlineColor = Color3.fromRGB(255, 255, 255)
 							hl.FillTransparency = 0.4
 							hl.OutlineTransparency = 0
@@ -424,51 +383,54 @@ CreateToggle("Noclip", false, function(enabled)
 	end
 end)
 
--- Free Cam
-local flyConn = nil
-local flyVelocity = nil
-local flyRespawn = nil
+-- ACTUAL FREE CAM (Camera separates, Player stays perfectly safe & hidden)
+local fcConn, fcInput
+local fcCFrame = camera.CFrame
+local pitch, yaw = 0, 0
 
 CreateToggle("Free Cam", false, function(enabled)
 	if enabled then
-		local function startFlying(char)
-			if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-			local hrp = char.HumanoidRootPart
-			local hum = char:FindFirstChild("Humanoid")
+		camera.CameraType = Enum.CameraType.Scriptable
+		fcCFrame = camera.CFrame
+		pitch, yaw, _ = fcCFrame:ToEulerAnglesYXZ()
+		
+		-- Handles Mouse Looking while holding Right-Click
+		fcInput = UserInputService.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseMovement then
+				if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+					UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+					yaw = yaw - math.rad(input.Delta.X * 0.4)
+					pitch = pitch - math.rad(input.Delta.Y * 0.4)
+					pitch = math.clamp(pitch, -math.rad(89), math.rad(89))
+					fcCFrame = CFrame.new(fcCFrame.Position) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
+				else
+					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				end
+			end
+		end)
 
-			local att = hrp:FindFirstChild("RootAttachment") or Instance.new("Attachment")
-			att.Name = "RootAttachment"
-			att.Parent = hrp
-
-			flyVelocity = Instance.new("LinearVelocity")
-			flyVelocity.Attachment0 = att
-			flyVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
-			flyVelocity.MaxForce = math.huge
-			flyVelocity.VectorVelocity = Vector3.zero
-			flyVelocity.Parent = hrp
-
-			if hum then hum.PlatformStand = true end
-
-			flyConn = RunService.RenderStepped:Connect(function()
-				local humDir = (hum and hum.MoveDirection) or Vector3.zero
-				local vertical = Vector3.zero
-
-				if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vertical = vertical + Vector3.new(0,1,0) end
-				if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then vertical = vertical - Vector3.new(0,1,0) end
-
-				local totalMove = humDir + vertical
-				flyVelocity.VectorVelocity = totalMove * 85
-			end)
-		end
-
-		startFlying(player.Character)
-		flyRespawn = player.CharacterAdded:Connect(startFlying)
+		-- Handles Movement
+		fcConn = RunService.RenderStepped:Connect(function(dt)
+			local moveVector = Vector3.new()
+			if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0, 0, -1) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0, 0, 1) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector + Vector3.new(-1, 0, 0) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + Vector3.new(1, 0, 0) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveVector = moveVector + Vector3.new(0, 1, 0) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveVector = moveVector + Vector3.new(0, -1, 0) end
+			
+			-- Move at speed of 50 studs/sec
+			fcCFrame = fcCFrame * CFrame.new(moveVector * (50 * dt))
+			camera.CFrame = fcCFrame
+		end)
 	else
-		if flyConn then flyConn:Disconnect() end
-		if flyVelocity then flyVelocity:Destroy() end
-		if flyRespawn then flyRespawn:Disconnect() end
+		if fcConn then fcConn:Disconnect() end
+		if fcInput then fcInput:Disconnect() end
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		
+		camera.CameraType = Enum.CameraType.Custom
 		if player.Character and player.Character:FindFirstChild("Humanoid") then
-			player.Character.Humanoid.PlatformStand = false
+			camera.CameraSubject = player.Character.Humanoid
 		end
 	end
 end)
@@ -495,7 +457,7 @@ CreateToggle("Killaura", false, function(enabled)
 	end
 end)
 
--- CLOCK (Overhauled Design)
+-- CLOCK WIDGET
 local clockFrame = nil
 local clockUpdate = nil
 
@@ -549,7 +511,6 @@ CreateToggle("Clock Widget", false, function(enabled)
 			end
 		end)
 		
-		-- Startup Widget Bounce
 		clockFrame.Size = UDim2.new(0, 0, 0, 0)
 		TweenService:Create(clockFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce), {Size = UDim2.new(0, 140, 0, 50)}):Play()
 	else
