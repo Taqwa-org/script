@@ -2,9 +2,9 @@
 -- ESP (Players, Mobs, NPCs, All Entities)
 -- Full Bright
 -- Noclip
--- Free Cam (Detached Camera, Character stays safe)
+-- Free Cam (Detached Camera, Locks Player, Mobile Friendly)
 -- Killaura
--- Clock
+-- Clock Widget 
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -14,6 +14,7 @@ local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
+local isMobile = UserInputService.TouchEnabled
 
 -- ==================== CREATE GUI ====================
 local ScreenGui = Instance.new("ScreenGui")
@@ -42,6 +43,7 @@ MainFrame.Position = UDim2.new(0.5, -155, 0.5, -200)
 MainFrame.BackgroundColor3 = Color3.fromRGB(13, 15, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
+MainFrame.Active = true
 MainFrame.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
@@ -58,6 +60,7 @@ local Header = Instance.new("Frame")
 Header.Size = UDim2.new(1, 0, 0, 45)
 Header.BackgroundColor3 = Color3.fromRGB(18, 22, 30)
 Header.BorderSizePixel = 0
+Header.Active = true
 Header.Parent = MainFrame
 
 local HeaderGradient = Instance.new("UIGradient")
@@ -79,10 +82,9 @@ Title.Font = Enum.Font.GothamBlack
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
--- Window Controls (Fixed text style instead of dots)
 local MinimizeBtn = Instance.new("TextButton")
-MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
-MinimizeBtn.Position = UDim2.new(1, -70, 0.5, -15)
+MinimizeBtn.Size = UDim2.new(0, 35, 0, 35)
+MinimizeBtn.Position = UDim2.new(1, -75, 0.5, -17.5)
 MinimizeBtn.BackgroundTransparency = 1
 MinimizeBtn.Text = "-"
 MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -91,8 +93,8 @@ MinimizeBtn.Font = Enum.Font.GothamMedium
 MinimizeBtn.Parent = Header
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -35, 0.5, -15)
+CloseBtn.Size = UDim2.new(0, 35, 0, 35)
+CloseBtn.Position = UDim2.new(1, -40, 0.5, -17.5)
 CloseBtn.BackgroundTransparency = 1
 CloseBtn.Text = "X"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -100,7 +102,6 @@ CloseBtn.TextSize = 20
 CloseBtn.Font = Enum.Font.GothamMedium
 CloseBtn.Parent = Header
 
--- Divider Line
 local Divider = Instance.new("Frame")
 Divider.Size = UDim2.new(1, 0, 0, 1)
 Divider.Position = UDim2.new(0, 0, 1, -1)
@@ -115,7 +116,9 @@ Body.Position = UDim2.new(0, 0, 0, 45)
 Body.BackgroundTransparency = 1
 Body.ScrollBarThickness = 3
 Body.ScrollBarImageColor3 = Color3.fromRGB(0, 225, 217)
+Body.CanvasSize = UDim2.new(0, 0, 0, 0) -- FIX: Removes massive default empty scrolling space
 Body.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Body.Active = true
 Body.Parent = MainFrame
 
 local BodyLayout = Instance.new("UIListLayout")
@@ -129,44 +132,43 @@ BodyPadding.PaddingTop = UDim.new(0, 12)
 BodyPadding.PaddingBottom = UDim.new(0, 12)
 BodyPadding.Parent = Body
 
--- ==================== FIXED DRAG LOGIC ====================
-local dragging
-local dragInput
-local dragStart
-local startPos
+-- ==================== DRAG LOGIC ====================
+local function MakeDraggable(dragArea, moveTarget, shadowTarget)
+	local dragging, dragInput, dragStart, startPos
 
-local function update(input)
-	local delta = input.Position - dragStart
-	local dest = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	MainFrame.Position = dest
-	Shadow.Position = UDim2.new(dest.X.Scale, dest.X.Offset - 15, dest.Y.Scale, dest.Y.Offset - 15)
+	dragArea.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = moveTarget.Position
+		end
+	end)
+
+	dragArea.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if input == dragInput and dragging then
+			local delta = input.Position - dragStart
+			local dest = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+			moveTarget.Position = dest
+			if shadowTarget then
+				shadowTarget.Position = UDim2.new(dest.X.Scale, dest.X.Offset - 15, dest.Y.Scale, dest.Y.Offset - 15)
+			end
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
 end
 
-Header.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		dragStart = input.Position
-		startPos = MainFrame.Position
-		
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
-end)
-
-Header.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-		dragInput = input
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if input == dragInput and dragging then
-		update(input)
-	end
-end)
+MakeDraggable(Header, MainFrame, Shadow)
 
 -- ==================== MINIMIZE & CLOSE ====================
 local isMinimized = false
@@ -179,8 +181,9 @@ MinimizeBtn.MouseButton1Click:Connect(function()
 	TweenService:Create(Shadow, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = shadowSize}):Play()
 end)
 
+-- FIX: Removed GroupTransparency which was erroring and breaking the close script
 CloseBtn.MouseButton1Click:Connect(function()
-	local t = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 250, 0, 320), GroupTransparency = 1})
+	local t = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 310, 0, 0)})
 	TweenService:Create(Shadow, TweenInfo.new(0.3), {ImageTransparency = 1}):Play()
 	t:Play()
 	t.Completed:Wait()
@@ -383,10 +386,67 @@ CreateToggle("Noclip", false, function(enabled)
 	end
 end)
 
--- ACTUAL FREE CAM (Camera separates, Player stays perfectly safe & hidden)
+-- ==================== MOBILE COMPATIBLE FREECAM ====================
 local fcConn, fcInput
 local fcCFrame = camera.CFrame
 local pitch, yaw = 0, 0
+
+local mobileMoveFlags = {F=false, B=false, L=false, R=false, U=false, D=false}
+local FreecamMobileGUI = nil
+
+local function buildMobileControls()
+	if not isMobile then return end
+	FreecamMobileGUI = Instance.new("ScreenGui")
+	FreecamMobileGUI.Name = "FreecamControls"
+	FreecamMobileGUI.Parent = ScreenGui
+
+	local function createBtn(text, pos, flag)
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(0, 55, 0, 55)
+		btn.Position = pos
+		btn.BackgroundColor3 = Color3.fromRGB(20, 25, 30)
+		btn.BackgroundTransparency = 0.4
+		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		btn.Text = text
+		btn.Font = Enum.Font.GothamBlack
+		btn.TextSize = 22
+		btn.AutoButtonColor = false
+		btn.Parent = FreecamMobileGUI
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = btn
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(0, 225, 217)
+		stroke.Thickness = 1
+		stroke.Parent = btn
+
+		btn.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+				mobileMoveFlags[flag] = true
+				btn.BackgroundColor3 = Color3.fromRGB(0, 225, 217)
+				btn.TextColor3 = Color3.fromRGB(13, 15, 20)
+			end
+		end)
+		btn.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+				mobileMoveFlags[flag] = false
+				btn.BackgroundColor3 = Color3.fromRGB(20, 25, 30)
+				btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+			end
+		end)
+	end
+
+	-- D-Pad (Left Side)
+	createBtn("W", UDim2.new(0, 85, 1, -190), "F")
+	createBtn("S", UDim2.new(0, 85, 1, -70), "B")
+	createBtn("A", UDim2.new(0, 20, 1, -130), "L")
+	createBtn("D", UDim2.new(0, 150, 1, -130), "R")
+	-- Elevations (Right Side)
+	createBtn("UP", UDim2.new(1, -100, 1, -190), "U")
+	createBtn("DN", UDim2.new(1, -100, 1, -70), "D")
+end
 
 CreateToggle("Free Cam", false, function(enabled)
 	if enabled then
@@ -394,30 +454,40 @@ CreateToggle("Free Cam", false, function(enabled)
 		fcCFrame = camera.CFrame
 		pitch, yaw, _ = fcCFrame:ToEulerAnglesYXZ()
 		
-		-- Handles Mouse Looking while holding Right-Click
-		fcInput = UserInputService.InputChanged:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseMovement then
-				if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-					UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
-					yaw = yaw - math.rad(input.Delta.X * 0.4)
-					pitch = pitch - math.rad(input.Delta.Y * 0.4)
-					pitch = math.clamp(pitch, -math.rad(89), math.rad(89))
-					fcCFrame = CFrame.new(fcCFrame.Position) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
-				else
-					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-				end
+		-- FIX: Lock the player entirely by Anchoring their RootPart
+		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			player.Character.HumanoidRootPart.Anchored = true
+		end
+		
+		buildMobileControls()
+		
+		-- Handles Panning (Right Click for PC, Swiping anywhere on screen for Mobile)
+		fcInput = UserInputService.InputChanged:Connect(function(input, gameProcessed)
+			if gameProcessed then return end 
+			
+			local isTouch = (input.UserInputType == Enum.UserInputType.Touch)
+			local isMouse = (input.UserInputType == Enum.UserInputType.MouseMovement and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))
+			
+			if isTouch or isMouse then
+				if isMouse then UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition end
+				yaw = yaw - math.rad(input.Delta.X * 0.25)
+				pitch = pitch - math.rad(input.Delta.Y * 0.25)
+				pitch = math.clamp(pitch, -math.rad(89), math.rad(89))
+				fcCFrame = CFrame.new(fcCFrame.Position) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
+			else
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 			end
 		end)
 
-		-- Handles Movement
+		-- Handles Camera Movement
 		fcConn = RunService.RenderStepped:Connect(function(dt)
 			local moveVector = Vector3.new()
-			if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0, 0, -1) end
-			if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0, 0, 1) end
-			if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector + Vector3.new(-1, 0, 0) end
-			if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + Vector3.new(1, 0, 0) end
-			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveVector = moveVector + Vector3.new(0, 1, 0) end
-			if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveVector = moveVector + Vector3.new(0, -1, 0) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.W) or mobileMoveFlags.F then moveVector += Vector3.new(0, 0, -1) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.S) or mobileMoveFlags.B then moveVector += Vector3.new(0, 0, 1) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.A) or mobileMoveFlags.L then moveVector += Vector3.new(-1, 0, 0) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.D) or mobileMoveFlags.R then moveVector += Vector3.new(1, 0, 0) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.Space) or mobileMoveFlags.U then moveVector += Vector3.new(0, 1, 0) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or mobileMoveFlags.D then moveVector += Vector3.new(0, -1, 0) end
 			
 			-- Move at speed of 50 studs/sec
 			fcCFrame = fcCFrame * CFrame.new(moveVector * (50 * dt))
@@ -426,11 +496,19 @@ CreateToggle("Free Cam", false, function(enabled)
 	else
 		if fcConn then fcConn:Disconnect() end
 		if fcInput then fcInput:Disconnect() end
+		if FreecamMobileGUI then FreecamMobileGUI:Destroy() end
+		
+		for k, v in pairs(mobileMoveFlags) do mobileMoveFlags[k] = false end
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		
 		camera.CameraType = Enum.CameraType.Custom
 		if player.Character and player.Character:FindFirstChild("Humanoid") then
 			camera.CameraSubject = player.Character.Humanoid
+		end
+		
+		-- FIX: Unlock the player when Freecam is disabled
+		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			player.Character.HumanoidRootPart.Anchored = false
 		end
 	end
 end)
@@ -457,7 +535,7 @@ CreateToggle("Killaura", false, function(enabled)
 	end
 end)
 
--- CLOCK WIDGET
+-- CLOCK WIDGET 
 local clockFrame = nil
 local clockUpdate = nil
 
@@ -465,8 +543,9 @@ CreateToggle("Clock Widget", false, function(enabled)
 	if enabled then
 		clockFrame = Instance.new("Frame")
 		clockFrame.Size = UDim2.new(0, 140, 0, 50)
-		clockFrame.Position = UDim2.new(1, -155, 0, 15)
+		clockFrame.Position = UDim2.new(1, -155, 0, 70) 
 		clockFrame.BackgroundColor3 = Color3.fromRGB(18, 22, 30)
+		clockFrame.Active = true
 		clockFrame.Parent = ScreenGui
 
 		local cCorner = Instance.new("UICorner")
@@ -497,6 +576,9 @@ CreateToggle("Clock Widget", false, function(enabled)
 		iconLabel.Font = Enum.Font.GothamBold
 		iconLabel.Parent = clockFrame
 
+		-- Allow user to drag widget
+		MakeDraggable(clockFrame, clockFrame, nil)
+
 		clockUpdate = RunService.Heartbeat:Connect(function()
 			local t = os.date("*t")
 			timeLabel.Text = string.format("%02d:%02d", t.hour, t.min)
@@ -525,4 +607,4 @@ CreateToggle("Clock Widget", false, function(enabled)
 	end
 end)
 
-print("Shark V1")
+print("Shark V1 (Bugs Resolved)")
