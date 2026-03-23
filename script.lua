@@ -1,11 +1,4 @@
--- Features:
--- Slimmer Modern UI with fully functional Sidebar (Navbar)
--- Vertical Scrolling ONLY
--- Creator Info & Script Details (Home Tab)
--- ESP (Dropdown Menu, Dynamic Text Scaling, Toggable Info)
--- Fullbright (Perfectly restores original lighting)
--- Noclip & Freecam (Detached Camera, Mobile Friendly)
-
+-- ==================== SERVICES & VARIABLES ====================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -46,9 +39,9 @@ MainStroke.Parent = MainFrame
 local Shadow = Instance.new("ImageLabel")
 Shadow.Name = "DropShadow"
 Shadow.BackgroundTransparency = 1
-Shadow.Position = UDim2.new(MainFrame.Position.X.Scale, MainFrame.Position.X.Offset - 15, MainFrame.Position.Y.Scale, MainFrame.Position.Y.Offset - 15)
+Shadow.Position = UDim2.new(0.5, -235, 0.15, -15)
 Shadow.Size = UDim2.new(0, 470, 0.7, 30)
-Shadow.Image = "rbxassetid://4731308628" 
+Shadow.Image = "rbxassetid://4731308628"
 Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
 Shadow.ImageTransparency = 0.4
 Shadow.ScaleType = Enum.ScaleType.Slice
@@ -120,14 +113,21 @@ Divider.BackgroundColor3 = Color3.fromRGB(35, 45, 60)
 Divider.BorderSizePixel = 0
 Divider.Parent = Header
 
--- ==================== SIDEBAR & TABS SYSTEM ====================
--- Enlarged Sidebar to 150px
+-- ==================== BODY CONTAINER (FIXES NAVBAR COLLISION) ====================
+local BodyFrame = Instance.new("Frame")
+BodyFrame.Name = "BodyFrame"
+BodyFrame.Size = UDim2.new(1, 0, 1, -45)
+BodyFrame.Position = UDim2.new(0, 0, 0, 45)
+BodyFrame.BackgroundTransparency = 1
+BodyFrame.Parent = MainFrame
+
+-- ==================== SIDEBAR (now inside BodyFrame) ====================
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 150, 1, -45)
-Sidebar.Position = UDim2.new(0, 0, 0, 45)
+Sidebar.Size = UDim2.new(0, 150, 1, 0)
+Sidebar.Position = UDim2.new(0, 0, 0, 0)
 Sidebar.BackgroundColor3 = Color3.fromRGB(16, 20, 28)
 Sidebar.BorderSizePixel = 0
-Sidebar.Parent = MainFrame
+Sidebar.Parent = BodyFrame
 
 local SidebarLine = Instance.new("Frame")
 SidebarLine.Size = UDim2.new(0, 1, 1, 0)
@@ -146,17 +146,18 @@ local SidebarPadding = Instance.new("UIPadding")
 SidebarPadding.PaddingTop = UDim.new(0, 15)
 SidebarPadding.Parent = Sidebar
 
+-- ==================== CONTENT CONTAINER (now inside BodyFrame) ====================
 local ContentContainer = Instance.new("Frame")
-ContentContainer.Size = UDim2.new(1, -150, 1, -45)
-ContentContainer.Position = UDim2.new(0, 150, 0, 45)
+ContentContainer.Size = UDim2.new(1, -150, 1, 0)
+ContentContainer.Position = UDim2.new(0, 150, 0, 0)
 ContentContainer.BackgroundTransparency = 1
-ContentContainer.Parent = MainFrame
+ContentContainer.Parent = BodyFrame
 
+-- ==================== TABS SYSTEM ====================
 local Tabs = {}
 local TabButtons = {}
 
 local function CreateTab(name, icon, isFirst)
-	-- Create Larger Sidebar Navbuttons
 	local TabBtn = Instance.new("TextButton")
 	TabBtn.Size = UDim2.new(0.9, 0, 0, 40)
 	TabBtn.BackgroundColor3 = isFirst and Color3.fromRGB(0, 225, 217) or Color3.fromRGB(25, 30, 40)
@@ -176,13 +177,12 @@ local function CreateTab(name, icon, isFirst)
 	BtnPadding.PaddingLeft = UDim.new(0, 10)
 	BtnPadding.Parent = TabBtn
 
-	-- Create Content Page (VERTICAL SCROLLING ONLY)
 	local TabPage = Instance.new("ScrollingFrame")
 	TabPage.Size = UDim2.new(1, 0, 1, 0)
 	TabPage.BackgroundTransparency = 1
 	TabPage.ScrollBarThickness = 3
 	TabPage.ScrollBarImageColor3 = Color3.fromRGB(0, 225, 217)
-	TabPage.ScrollingDirection = Enum.ScrollingDirection.Y -- FIX: Strictly vertical scroll
+	TabPage.ScrollingDirection = Enum.ScrollingDirection.Y
 	TabPage.CanvasSize = UDim2.new(0, 0, 0, 0)
 	TabPage.Visible = isFirst
 	TabPage.Parent = ContentContainer
@@ -198,12 +198,10 @@ local function CreateTab(name, icon, isFirst)
 	PagePadding.PaddingBottom = UDim.new(0, 15)
 	PagePadding.Parent = TabPage
 
-	-- Auto Adjust Vertical Canvas Size
 	PageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		TabPage.CanvasSize = UDim2.new(0, 0, 0, PageLayout.AbsoluteContentSize.Y + 30)
 	end)
 
-	-- Tab Switching Logic
 	TabBtn.MouseButton1Click:Connect(function()
 		for i, page in pairs(Tabs) do
 			page.Visible = false
@@ -246,7 +244,7 @@ AddHomeText("SHARK V1", 28, Enum.Font.GothamBlack, Color3.fromRGB(0, 225, 217))
 AddHomeText("Developed by Sadur Rahman Alif", 14, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
 
 local InfoCard = Instance.new("Frame")
-InfoCard.Size = UDim2.new(0.9, 0, 0, 200) -- Increased height to fit text properly
+InfoCard.Size = UDim2.new(0.9, 0, 0, 200)
 InfoCard.BackgroundColor3 = Color3.fromRGB(18, 22, 30)
 InfoCard.BorderSizePixel = 0
 InfoCard.Parent = HomeTab
@@ -317,7 +315,7 @@ MinimizeBtn.MouseButton1Click:Connect(function()
 	isMinimized = not isMinimized
 	local targetSize = isMinimized and UDim2.new(0, 440, 0, 45) or UDim2.new(0, 440, 0.7, 0)
 	local shadowSize = isMinimized and UDim2.new(0, 470, 0, 75) or UDim2.new(0, 470, 0.7, 30)
-	
+
 	TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = targetSize}):Play()
 	TweenService:Create(Shadow, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = shadowSize}):Play()
 end)
@@ -331,7 +329,7 @@ CloseBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==================== TOGGLE CREATOR ====================
-local featureCallbacks = {} 
+local featureCallbacks = {}
 
 local function CreateToggle(text, defaultState, parent, isSub, callback)
 	local ToggleFrame = Instance.new("Frame")
@@ -427,7 +425,7 @@ end
 
 ScreenGui.Destroying:Connect(function()
 	for _, callback in pairs(featureCallbacks) do
-		callback(false) 
+		callback(false)
 	end
 end)
 
@@ -449,13 +447,12 @@ local espConfig = {Enabled = false, NameDist = true, HealthSpeed = true, WeaponD
 local function getEntityStats(obj, dist)
 	local isFriendly = false
 	local plr = Players:GetPlayerFromCharacter(obj)
-	
 	if plr and plr.Team and player.Team and plr.Team == player.Team then isFriendly = true end
 	local color = isFriendly and Color3.fromRGB(0, 180, 255) or Color3.fromRGB(255, 50, 50)
-	
+
 	local lines = {}
 	if espConfig.NameDist then table.insert(lines, string.format("[%s] %ds", obj.Name, dist)) end
-	
+
 	if espConfig.HealthSpeed then
 		local hum = obj:FindFirstChildOfClass("Humanoid")
 		local hp = hum and math.floor(hum.Health) or 0
@@ -463,7 +460,7 @@ local function getEntityStats(obj, dist)
 		local speed = hum and math.floor(hum.WalkSpeed) or 0
 		table.insert(lines, string.format("HP: %d/%d | SPD: %d", hp, maxHp, speed))
 	end
-	
+
 	if espConfig.WeaponDmg then
 		local weaponText = "Unarmed"
 		local tool = obj:FindFirstChildOfClass("Tool")
@@ -477,7 +474,7 @@ local function getEntityStats(obj, dist)
 		end
 		table.insert(lines, weaponText)
 	end
-	
+
 	return color, table.concat(lines, "\n")
 end
 
@@ -490,7 +487,6 @@ end
 local espLoopRunning = false
 CreateToggle("Entity ESP", false, EspContainer, false, function(enabled)
 	espConfig.Enabled = enabled
-	
 	if enabled then
 		TweenService:Create(EspContainer, TweenInfo.new(0.4, Enum.EasingStyle.Quint), {Size = UDim2.new(1, 0, 0, 186)}):Play()
 		
@@ -502,11 +498,9 @@ CreateToggle("Entity ESP", false, EspContainer, false, function(enabled)
 						for _, obj in ipairs(workspace:GetDescendants()) do
 							if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and obj ~= player.Character then
 								local hum = obj:FindFirstChildOfClass("Humanoid")
-								
 								if hum and hum.Health > 0 then
 									local root = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
 									local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-									
 									local dist = 0
 									if root and myRoot then dist = math.floor((myRoot.Position - root.Position).Magnitude) end
 									
@@ -528,8 +522,8 @@ CreateToggle("Entity ESP", false, EspContainer, false, function(enabled)
 											bg = Instance.new("BillboardGui")
 											bg.Name = "SharkV1_Billboard"
 											bg.Adornee = root
-											bg.Size = UDim2.new(0, 300, 0, 90) 
-											bg.StudsOffsetWorldSpace = Vector3.new(0, 3.5, 0) 
+											bg.Size = UDim2.new(0, 300, 0, 90)
+											bg.StudsOffsetWorldSpace = Vector3.new(0, 3.5, 0)
 											bg.AlwaysOnTop = true
 											bg.Parent = obj
 											
@@ -588,8 +582,7 @@ CreateToggle("Show Name & Distance", true, EspContainer, true, function(enabled)
 CreateToggle("Show Health & Speed", true, EspContainer, true, function(enabled) espConfig.HealthSpeed = enabled end)
 CreateToggle("Show Weapon & Damage", true, EspContainer, true, function(enabled) espConfig.WeaponDmg = enabled end)
 
-
--- ==================== VISUALS: FULLBRIGHT (FIXED) ====================
+-- ==================== VISUALS: FULLBRIGHT ====================
 local fbConn = nil
 local originalLight = {}
 
@@ -602,7 +595,6 @@ CreateToggle("Full Bright", false, VisualsTab, false, function(enabled)
 			Ambient = Lighting.Ambient,
 			OutdoorAmbient = Lighting.OutdoorAmbient
 		}
-		
 		fbConn = RunService.RenderStepped:Connect(function()
 			Lighting.Brightness = 2
 			Lighting.ClockTime = 14
@@ -611,16 +603,12 @@ CreateToggle("Full Bright", false, VisualsTab, false, function(enabled)
 			Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
 		end)
 	else
-		if fbConn then 
-			fbConn:Disconnect() 
-			fbConn = nil
-		end
+		if fbConn then fbConn:Disconnect() fbConn = nil end
 		for k, v in pairs(originalLight) do
 			pcall(function() Lighting[k] = v end)
 		end
 	end
 end)
-
 
 -- ==================== MOVEMENT: NOCLIP ====================
 local noclipConn = nil
@@ -653,7 +641,6 @@ CreateToggle("Noclip", false, MovementTab, false, function(enabled)
 		end
 	end
 end)
-
 
 -- ==================== MOVEMENT: FREECAM ====================
 local fcConn, fcInput
@@ -718,7 +705,7 @@ CreateToggle("Free Cam", false, MovementTab, false, function(enabled)
 	if enabled then
 		camera.CameraType = Enum.CameraType.Scriptable
 		fcCFrame = camera.CFrame
-		pitch, yaw, _ = fcCFrame:ToEulerAnglesYXZ()
+		pitch, yaw = fcCFrame:ToEulerAnglesYXZ()
 		
 		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
 			player.Character.HumanoidRootPart.Anchored = true
@@ -727,7 +714,7 @@ CreateToggle("Free Cam", false, MovementTab, false, function(enabled)
 		buildMobileControls()
 		
 		fcInput = UserInputService.InputChanged:Connect(function(input, gameProcessed)
-			if gameProcessed then return end 
+			if gameProcessed then return end
 			
 			local isTouch = (input.UserInputType == Enum.UserInputType.Touch)
 			local isMouse = (input.UserInputType == Enum.UserInputType.MouseMovement and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))
