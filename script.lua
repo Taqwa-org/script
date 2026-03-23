@@ -1,5 +1,5 @@
 -- Features:
--- ESP (Players, Mobs, NPCs, Info Tags, Friend/Foe Detection)
+-- ESP (Players, Mobs, NPCs, Info Tags, Friend/Foe Detection, Speed, Distance, Damage)
 -- Full Bright
 -- Noclip
 -- Free Cam (Detached Camera, Locks Player, Mobile Friendly)
@@ -69,7 +69,6 @@ HeaderGradient.Color = ColorSequence.new{
 HeaderGradient.Rotation = 90
 HeaderGradient.Parent = Header
 
--- Explicit Header Corner Rounding
 local HeaderCorner = Instance.new("UICorner")
 HeaderCorner.CornerRadius = UDim.new(0, 12)
 HeaderCorner.Parent = Header
@@ -300,7 +299,7 @@ end)
 
 -- ==================== FEATURES ====================
 
--- UPGRADED, BUG-PROOF ENTITY ESP
+-- UPGRADED, MULTI-LINE ESP (Health, WalkSpeed, Damage, Distance, Names)
 local espEnabled = false
 
 local function getEntityStats(obj)
@@ -312,25 +311,37 @@ local function getEntityStats(obj)
 	end
 	local color = isFriendly and Color3.fromRGB(0, 180, 255) or Color3.fromRGB(255, 50, 50)
 	
+	-- Name & Distance
+	local dist = 0
+	local targetRoot = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
+	local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if targetRoot and myRoot then
+		dist = math.floor((myRoot.Position - targetRoot.Position).Magnitude)
+	end
+	
+	-- Health & Speed
 	local hum = obj:FindFirstChildOfClass("Humanoid")
 	local hp = hum and math.floor(hum.Health) or 0
 	local maxHp = hum and math.floor(hum.MaxHealth) or 0
+	local speed = hum and math.floor(hum.WalkSpeed) or 0
 	
+	-- Weapon & Damage Check
 	local weaponText = "Unarmed"
 	local tool = obj:FindFirstChildOfClass("Tool")
 	if tool then
 		local dmgVal = tool:FindFirstChild("Damage") or tool:FindFirstChild("HitDamage")
 		if dmgVal and (dmgVal:IsA("NumberValue") or dmgVal:IsA("IntValue")) then
-			weaponText = "DMG: " .. tostring(dmgVal.Value)
+			weaponText = string.format("WEP: %s (DMG: %s)", tool.Name, tostring(dmgVal.Value))
 		else
 			weaponText = "WEP: " .. tool.Name
 		end
 	end
 	
-	return color, string.format("HP: %d/%d | %s", hp, maxHp, weaponText)
+	-- Formats text onto 3 clean lines using "\n"
+	local infoText = string.format("[%s] %ds\nHP: %d/%d | SPD: %d\n%s", obj.Name, dist, hp, maxHp, speed, weaponText)
+	return color, infoText
 end
 
--- Bulletproof Cleanup function (Destroys ALL ESP objects instantly by name)
 local function cleanAllESP()
 	for _, v in ipairs(workspace:GetDescendants()) do
 		if v.Name == "SharkV1_Highlight" or v.Name == "SharkV1_Billboard" then
@@ -354,11 +365,9 @@ CreateToggle("Entity ESP", false, function(enabled)
 								local root = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
 								
 								if root then
-									-- Look for existing ESP objects
 									local hl = obj:FindFirstChild("SharkV1_Highlight")
 									local bg = obj:FindFirstChild("SharkV1_Billboard")
 									
-									-- Create them if they don't exist
 									if not hl then
 										hl = Instance.new("Highlight")
 										hl.Name = "SharkV1_Highlight"
@@ -374,10 +383,9 @@ CreateToggle("Entity ESP", false, function(enabled)
 										bg.Name = "SharkV1_Billboard"
 										bg.Adornee = root
 										
-										-- FIX: Fixed scaling so it NEVER shrinks.
-										bg.Size = UDim2.new(0, 200, 0, 40) 
-										-- FIX: Uses WorldSpace so looking up/down doesn't rotate text into the character's body
-										bg.StudsOffsetWorldSpace = Vector3.new(0, 3, 0) 
+										-- FIX: Increased height to 65 for 3 lines of text
+										bg.Size = UDim2.new(0, 200, 0, 65) 
+										bg.StudsOffsetWorldSpace = Vector3.new(0, 3.5, 0) 
 										bg.AlwaysOnTop = true
 										bg.Parent = obj
 										
@@ -385,7 +393,9 @@ CreateToggle("Entity ESP", false, function(enabled)
 										txt.Name = "InfoText"
 										txt.Size = UDim2.new(1, 0, 1, 0)
 										txt.BackgroundTransparency = 1
-										txt.TextSize = 14
+										txt.TextSize = 13
+										txt.TextWrapped = true
+										txt.TextYAlignment = Enum.TextYAlignment.Bottom
 										txt.Font = Enum.Font.GothamBold
 										txt.Parent = bg
 										
@@ -406,7 +416,6 @@ CreateToggle("Entity ESP", false, function(enabled)
 									end
 								end
 							elseif hum and hum.Health <= 0 then
-								-- Auto-destroy ESP tags if the entity dies
 								if obj:FindFirstChild("SharkV1_Highlight") then obj:FindFirstChild("SharkV1_Highlight"):Destroy() end
 								if obj:FindFirstChild("SharkV1_Billboard") then obj:FindFirstChild("SharkV1_Billboard"):Destroy() end
 							end
@@ -415,11 +424,10 @@ CreateToggle("Entity ESP", false, function(enabled)
 				end)
 				
 				if not success then warn("ESP Loop Error: ", err) end
-				task.wait(0.5)
+				task.wait(0.2) -- Faster update time so distance tracking is super smooth
 			end
 		end)
 	else
-		-- Ensure 100% destruction when toggled off
 		cleanAllESP()
 	end
 end)
@@ -595,4 +603,4 @@ CreateToggle("Free Cam", false, function(enabled)
 	end
 end)
 
-print("Shark V1 - All Systems Functional")
+print("Shark V1 - Load Success")
