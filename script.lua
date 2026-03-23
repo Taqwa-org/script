@@ -40,7 +40,7 @@ MainStroke.Color = Color3.fromRGB(35, 45, 60)
 MainStroke.Thickness = 1.5
 MainStroke.Parent = MainFrame
 
--- Shadow Layer (Adapts to 70% height scale)
+-- Shadow Layer
 local Shadow = Instance.new("ImageLabel")
 Shadow.Name = "DropShadow"
 Shadow.BackgroundTransparency = 1
@@ -69,12 +69,12 @@ HeaderGradient.Color = ColorSequence.new{
 HeaderGradient.Rotation = 90
 HeaderGradient.Parent = Header
 
--- FIX: Forces the Header to be explicitly rounded at the top
+-- Explicit Header Corner Rounding
 local HeaderCorner = Instance.new("UICorner")
 HeaderCorner.CornerRadius = UDim.new(0, 12)
 HeaderCorner.Parent = Header
 
-local HeaderPatch = Instance.new("Frame") -- Squares off the bottom of the header so it blends flawlessly
+local HeaderPatch = Instance.new("Frame")
 HeaderPatch.Size = UDim2.new(1, 0, 0, 10)
 HeaderPatch.Position = UDim2.new(0, 0, 1, -10)
 HeaderPatch.BackgroundColor3 = Color3.fromRGB(13, 15, 20)
@@ -141,7 +141,6 @@ BodyPadding.PaddingTop = UDim.new(0, 12)
 BodyPadding.PaddingBottom = UDim.new(0, 12)
 BodyPadding.Parent = Body
 
--- Accurate Custom Scroll Tracking
 BodyLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	Body.CanvasSize = UDim2.new(0, 0, 0, BodyLayout.AbsoluteContentSize.Y + 24)
 end)
@@ -301,26 +300,22 @@ end)
 
 -- ==================== FEATURES ====================
 
--- UPGRADED ENTITY ESP (Colors, HP, Damage) - FIXED CRASH
+-- UPGRADED, BUG-PROOF ENTITY ESP
 local espEnabled = false
-local espObjects = {}
 
 local function getEntityStats(obj)
 	local isFriendly = false
 	local plr = Players:GetPlayerFromCharacter(obj)
 	
-	-- Determine Friend or Foe
 	if plr and plr.Team and player.Team and plr.Team == player.Team then
 		isFriendly = true
 	end
 	local color = isFriendly and Color3.fromRGB(0, 180, 255) or Color3.fromRGB(255, 50, 50)
 	
-	-- Get Health
 	local hum = obj:FindFirstChildOfClass("Humanoid")
 	local hp = hum and math.floor(hum.Health) or 0
 	local maxHp = hum and math.floor(hum.MaxHealth) or 0
 	
-	-- Get Damage / Weapon
 	local weaponText = "Unarmed"
 	local tool = obj:FindFirstChildOfClass("Tool")
 	if tool then
@@ -332,15 +327,15 @@ local function getEntityStats(obj)
 		end
 	end
 	
-	local infoString = string.format("HP: %d/%d | %s", hp, maxHp, weaponText)
-	return color, infoString
+	return color, string.format("HP: %d/%d | %s", hp, maxHp, weaponText)
 end
 
-local function cleanESP(obj)
-	if espObjects[obj] then
-		if espObjects[obj].Highlight then espObjects[obj].Highlight:Destroy() end
-		if espObjects[obj].Billboard then espObjects[obj].Billboard:Destroy() end
-		espObjects[obj] = nil
+-- Bulletproof Cleanup function (Destroys ALL ESP objects instantly by name)
+local function cleanAllESP()
+	for _, v in ipairs(workspace:GetDescendants()) do
+		if v.Name == "SharkV1_Highlight" or v.Name == "SharkV1_Billboard" then
+			v:Destroy()
+		end
 	end
 end
 
@@ -356,64 +351,65 @@ CreateToggle("Entity ESP", false, function(enabled)
 							
 							if hum and hum.Health > 0 then
 								local color, infoText = getEntityStats(obj)
+								local root = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
 								
-								if not espObjects[obj] then
-									-- Find root part to attach to
-									local root = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
+								if root then
+									-- Look for existing ESP objects
+									local hl = obj:FindFirstChild("SharkV1_Highlight")
+									local bg = obj:FindFirstChild("SharkV1_Billboard")
 									
-									if root then
-										local hl = Instance.new("Highlight")
+									-- Create them if they don't exist
+									if not hl then
+										hl = Instance.new("Highlight")
+										hl.Name = "SharkV1_Highlight"
 										hl.Adornee = obj
-										hl.FillColor = color
-										hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+										hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 										hl.FillTransparency = 0.5
 										hl.OutlineTransparency = 0
-										hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 										hl.Parent = obj
-										
-										local bg = Instance.new("BillboardGui")
+									end
+									
+									if not bg then
+										bg = Instance.new("BillboardGui")
+										bg.Name = "SharkV1_Billboard"
 										bg.Adornee = root
-										bg.Size = UDim2.new(0, 200, 0, 40)
-										bg.StudsOffset = Vector3.new(0, 2.5, 0)
+										
+										-- FIX: Fixed scaling so it NEVER shrinks.
+										bg.Size = UDim2.new(0, 200, 0, 40) 
+										-- FIX: Uses WorldSpace so looking up/down doesn't rotate text into the character's body
+										bg.StudsOffsetWorldSpace = Vector3.new(0, 3, 0) 
 										bg.AlwaysOnTop = true
 										bg.Parent = obj
 										
 										local txt = Instance.new("TextLabel")
+										txt.Name = "InfoText"
 										txt.Size = UDim2.new(1, 0, 1, 0)
 										txt.BackgroundTransparency = 1
-										txt.Text = infoText
-										txt.TextColor3 = color
-										txt.TextSize = 13
+										txt.TextSize = 14
 										txt.Font = Enum.Font.GothamBold
+										txt.Parent = bg
 										
-										-- FIX: Using "UIStroke" instead of "TextStroke"
 										local stroke = Instance.new("UIStroke")
 										stroke.Color = Color3.fromRGB(0,0,0)
 										stroke.Thickness = 1
 										stroke.Parent = txt
-										
-										txt.Parent = bg
-										
-										espObjects[obj] = { Highlight = hl, Billboard = bg, TextLabel = txt, Humanoid = hum }
 									end
-								else
-									-- Update existing ESP
-									if espObjects[obj].Highlight then
-										espObjects[obj].Highlight.FillColor = color
-									end
-									if espObjects[obj].TextLabel then
-										espObjects[obj].TextLabel.TextColor3 = color
-										espObjects[obj].TextLabel.Text = infoText
+									
+									-- Update properties dynamically
+									hl.FillColor = color
+									hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+									
+									local txt = bg:FindFirstChild("InfoText")
+									if txt then
+										txt.TextColor3 = color
+										txt.Text = infoText
 									end
 								end
+							elseif hum and hum.Health <= 0 then
+								-- Auto-destroy ESP tags if the entity dies
+								if obj:FindFirstChild("SharkV1_Highlight") then obj:FindFirstChild("SharkV1_Highlight"):Destroy() end
+								if obj:FindFirstChild("SharkV1_Billboard") then obj:FindFirstChild("SharkV1_Billboard"):Destroy() end
 							end
-						end
-					end
-					
-					-- Cleanup Dead/Removed Entities
-					for obj, data in pairs(espObjects) do
-						if not obj or not obj.Parent or not data.Humanoid or data.Humanoid.Health <= 0 then
-							cleanESP(obj)
 						end
 					end
 				end)
@@ -423,9 +419,8 @@ CreateToggle("Entity ESP", false, function(enabled)
 			end
 		end)
 	else
-		for obj, _ in pairs(espObjects) do
-			cleanESP(obj)
-		end
+		-- Ensure 100% destruction when toggled off
+		cleanAllESP()
 	end
 end)
 
@@ -600,4 +595,4 @@ CreateToggle("Free Cam", false, function(enabled)
 	end
 end)
 
-print("Shark V1 - Loaded Successfully")
+print("Shark V1 - All Systems Functional")
