@@ -3,8 +3,6 @@
 -- Full Bright
 -- Noclip
 -- Free Cam (Detached Camera, Locks Player, Mobile Friendly)
--- Killaura
--- Clock Widget (Game Time)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -26,7 +24,7 @@ ScreenGui.Parent = player:WaitForChild("PlayerGui")
 -- Main Frame (Height set to exactly 70% of device screen)
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 310, 0.7, 0)
-MainFrame.Position = UDim2.new(0.5, -155, 0.15, 0) -- Centered (1 - 0.7) / 2 = 0.15
+MainFrame.Position = UDim2.new(0.5, -155, 0.15, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(13, 15, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -70,6 +68,18 @@ HeaderGradient.Color = ColorSequence.new{
 }
 HeaderGradient.Rotation = 90
 HeaderGradient.Parent = Header
+
+-- FIX: Forces the Header to be explicitly rounded at the top
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 12)
+HeaderCorner.Parent = Header
+
+local HeaderPatch = Instance.new("Frame") -- Squares off the bottom of the header so it blends flawlessly
+HeaderPatch.Size = UDim2.new(1, 0, 0, 10)
+HeaderPatch.Position = UDim2.new(0, 0, 1, -10)
+HeaderPatch.BackgroundColor3 = Color3.fromRGB(13, 15, 20)
+HeaderPatch.BorderSizePixel = 0
+HeaderPatch.Parent = Header
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -110, 1, 0)
@@ -131,7 +141,7 @@ BodyPadding.PaddingTop = UDim.new(0, 12)
 BodyPadding.PaddingBottom = UDim.new(0, 12)
 BodyPadding.Parent = Body
 
--- FIX: Accurate Custom Scroll Tracking
+-- Accurate Custom Scroll Tracking
 BodyLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	Body.CanvasSize = UDim2.new(0, 0, 0, BodyLayout.AbsoluteContentSize.Y + 24)
 end)
@@ -291,7 +301,7 @@ end)
 
 -- ==================== FEATURES ====================
 
--- UPGRADED ENTITY ESP (Colors, HP, Damage)
+-- UPGRADED ENTITY ESP (Colors, HP, Damage) - FIXED CRASH
 local espEnabled = false
 local espObjects = {}
 
@@ -326,76 +336,96 @@ local function getEntityStats(obj)
 	return color, infoString
 end
 
+local function cleanESP(obj)
+	if espObjects[obj] then
+		if espObjects[obj].Highlight then espObjects[obj].Highlight:Destroy() end
+		if espObjects[obj].Billboard then espObjects[obj].Billboard:Destroy() end
+		espObjects[obj] = nil
+	end
+end
+
 CreateToggle("Entity ESP", false, function(enabled)
 	espEnabled = enabled
 	if enabled then
 		task.spawn(function()
 			while espEnabled do
-				for _, obj in ipairs(workspace:GetDescendants()) do
-					if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj ~= player.Character then
-						
-						local color, infoText = getEntityStats(obj)
-						
-						if not espObjects[obj] then
-							local hl = Instance.new("Highlight")
-							hl.Adornee = obj
-							hl.FillColor = color
-							hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-							hl.FillTransparency = 0.5
-							hl.OutlineTransparency = 0
-							hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-							hl.Parent = obj
+				local success, err = pcall(function()
+					for _, obj in ipairs(workspace:GetDescendants()) do
+						if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and obj ~= player.Character then
+							local hum = obj:FindFirstChildOfClass("Humanoid")
 							
-							local bg = Instance.new("BillboardGui")
-							bg.Adornee = obj:FindFirstChild("Head") or obj.PrimaryPart or obj
-							bg.Size = UDim2.new(0, 200, 0, 40)
-							bg.StudsOffset = Vector3.new(0, 2.5, 0)
-							bg.AlwaysOnTop = true
-							bg.Parent = obj
-							
-							local txt = Instance.new("TextLabel")
-							txt.Size = UDim2.new(1, 0, 1, 0)
-							txt.BackgroundTransparency = 1
-							txt.Text = infoText
-							txt.TextColor3 = color
-							txt.TextSize = 13
-							txt.Font = Enum.Font.GothamBold
-							
-							local stroke = Instance.new("TextStroke")
-							stroke.Color = Color3.fromRGB(0,0,0)
-							stroke.Thickness = 1
-							stroke.Transparency = 0
-							stroke.Parent = txt
-							
-							txt.Parent = bg
-							
-							espObjects[obj] = { Highlight = hl, Billboard = bg, TextLabel = txt }
-						else
-							-- Update existing ESP
-							espObjects[obj].Highlight.FillColor = color
-							espObjects[obj].TextLabel.TextColor3 = color
-							espObjects[obj].TextLabel.Text = infoText
+							if hum and hum.Health > 0 then
+								local color, infoText = getEntityStats(obj)
+								
+								if not espObjects[obj] then
+									-- Find root part to attach to
+									local root = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
+									
+									if root then
+										local hl = Instance.new("Highlight")
+										hl.Adornee = obj
+										hl.FillColor = color
+										hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+										hl.FillTransparency = 0.5
+										hl.OutlineTransparency = 0
+										hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+										hl.Parent = obj
+										
+										local bg = Instance.new("BillboardGui")
+										bg.Adornee = root
+										bg.Size = UDim2.new(0, 200, 0, 40)
+										bg.StudsOffset = Vector3.new(0, 2.5, 0)
+										bg.AlwaysOnTop = true
+										bg.Parent = obj
+										
+										local txt = Instance.new("TextLabel")
+										txt.Size = UDim2.new(1, 0, 1, 0)
+										txt.BackgroundTransparency = 1
+										txt.Text = infoText
+										txt.TextColor3 = color
+										txt.TextSize = 13
+										txt.Font = Enum.Font.GothamBold
+										
+										-- FIX: Using "UIStroke" instead of "TextStroke"
+										local stroke = Instance.new("UIStroke")
+										stroke.Color = Color3.fromRGB(0,0,0)
+										stroke.Thickness = 1
+										stroke.Parent = txt
+										
+										txt.Parent = bg
+										
+										espObjects[obj] = { Highlight = hl, Billboard = bg, TextLabel = txt, Humanoid = hum }
+									end
+								else
+									-- Update existing ESP
+									if espObjects[obj].Highlight then
+										espObjects[obj].Highlight.FillColor = color
+									end
+									if espObjects[obj].TextLabel then
+										espObjects[obj].TextLabel.TextColor3 = color
+										espObjects[obj].TextLabel.Text = infoText
+									end
+								end
+							end
 						end
 					end
-				end
-				
-				-- Cleanup Dead/Removed Entities
-				for obj, uiData in pairs(espObjects) do
-					if not obj or not obj.Parent or not obj:FindFirstChild("Humanoid") or obj:FindFirstChild("Humanoid").Health <= 0 then
-						uiData.Highlight:Destroy()
-						uiData.Billboard:Destroy()
-						espObjects[obj] = nil
+					
+					-- Cleanup Dead/Removed Entities
+					for obj, data in pairs(espObjects) do
+						if not obj or not obj.Parent or not data.Humanoid or data.Humanoid.Health <= 0 then
+							cleanESP(obj)
+						end
 					end
-				end
-				task.wait(0.5) -- Faster update for health changes
+				end)
+				
+				if not success then warn("ESP Loop Error: ", err) end
+				task.wait(0.5)
 			end
 		end)
 	else
-		for obj, uiData in pairs(espObjects) do
-			if uiData.Highlight then uiData.Highlight:Destroy() end
-			if uiData.Billboard then uiData.Billboard:Destroy() end
+		for obj, _ in pairs(espObjects) do
+			cleanESP(obj)
 		end
-		table.clear(espObjects)
 	end
 end)
 
@@ -570,100 +600,4 @@ CreateToggle("Free Cam", false, function(enabled)
 	end
 end)
 
--- Killaura
-local auraConn = nil
-
-CreateToggle("Killaura", false, function(enabled)
-	if enabled then
-		auraConn = RunService.Heartbeat:Connect(function()
-			if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-			local root = player.Character.HumanoidRootPart
-			for _, plr in ipairs(Players:GetPlayers()) do
-				if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-					local dist = (plr.Character.HumanoidRootPart.Position - root.Position).Magnitude
-					if dist < 15 then
-						-- ←←← PUT YOUR GAME REMOTE HERE
-					end
-				end
-			end
-		end)
-	else
-		if auraConn then auraConn:Disconnect() end
-	end
-end)
-
--- CLOCK WIDGET (Reads In-Game Lighting.ClockTime)
-local clockFrame = nil
-local clockUpdate = nil
-
-CreateToggle("Clock Widget", false, function(enabled)
-	if enabled then
-		clockFrame = Instance.new("Frame")
-		clockFrame.Size = UDim2.new(0, 140, 0, 50)
-		clockFrame.Position = UDim2.new(1, -155, 0, 70) 
-		clockFrame.BackgroundColor3 = Color3.fromRGB(18, 22, 30)
-		clockFrame.Active = true
-		clockFrame.Parent = ScreenGui
-
-		local cCorner = Instance.new("UICorner")
-		cCorner.CornerRadius = UDim.new(0, 12)
-		cCorner.Parent = clockFrame
-
-		local cStroke = Instance.new("UIStroke")
-		cStroke.Color = Color3.fromRGB(0, 225, 217)
-		cStroke.Thickness = 1.5
-		cStroke.Parent = clockFrame
-
-		local timeLabel = Instance.new("TextLabel")
-		timeLabel.Size = UDim2.new(0.65, 0, 1, 0)
-		timeLabel.Position = UDim2.new(0.08, 0, 0, 0)
-		timeLabel.BackgroundTransparency = 1
-		timeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		timeLabel.TextSize = 18
-		timeLabel.Font = Enum.Font.GothamBlack
-		timeLabel.Text = "00:00"
-		timeLabel.TextXAlignment = Enum.TextXAlignment.Left
-		timeLabel.Parent = clockFrame
-
-		local iconLabel = Instance.new("TextLabel")
-		iconLabel.Size = UDim2.new(0, 30, 0, 30)
-		iconLabel.Position = UDim2.new(0.7, 0, 0.5, -15)
-		iconLabel.BackgroundTransparency = 1
-		iconLabel.TextSize = 20
-		iconLabel.Font = Enum.Font.GothamBold
-		iconLabel.Parent = clockFrame
-
-		MakeDraggable(clockFrame, clockFrame, nil)
-
-		clockUpdate = RunService.Heartbeat:Connect(function()
-			-- FIX: Use exact Roblox Game Time instead of local Real Life time
-			local gameTime = Lighting.ClockTime
-			local h = math.floor(gameTime)
-			local m = math.floor((gameTime - h) * 60)
-			
-			timeLabel.Text = string.format("%02d:%02d", h, m)
-
-			if gameTime >= 6 and gameTime <= 18 then
-				iconLabel.Text = "☀️"
-				iconLabel.TextColor3 = Color3.fromRGB(255, 230, 100)
-			else
-				iconLabel.Text = "🌙"
-				iconLabel.TextColor3 = Color3.fromRGB(0, 225, 217)
-			end
-		end)
-		
-		clockFrame.Size = UDim2.new(0, 0, 0, 0)
-		TweenService:Create(clockFrame, TweenInfo.new(0.5, Enum.EasingStyle.Bounce), {Size = UDim2.new(0, 140, 0, 50)}):Play()
-	else
-		if clockUpdate then clockUpdate:Disconnect() end
-		if clockFrame then
-			local t = TweenService:Create(clockFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)})
-			t:Play()
-			t.Completed:Wait()
-			clockFrame:Destroy() 
-			clockFrame = nil 
-		end
-	end
-end)
-
-print("Shark V1 (Final Upgrade)")
+print("Shark V1 - Loaded Successfully")
