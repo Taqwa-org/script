@@ -1,9 +1,10 @@
 -- Features:
--- Modern Sidebar UI (Home, Visuals, Movement)
--- Creator Info & Script Details
+-- Slimmer Modern UI with fully functional Sidebar (Navbar)
+-- Vertical Scrolling ONLY
+-- Creator Info & Script Details (Home Tab)
 -- ESP (Dropdown Menu, Dynamic Text Scaling, Toggable Info)
--- Fullbright (Properly turns OFF now!)
--- Noclip & Freecam (Detached Camera, Locks Player, Mobile Friendly)
+-- Fullbright (Perfectly restores original lighting)
+-- Noclip & Freecam (Detached Camera, Mobile Friendly)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -22,10 +23,10 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Main Frame (Wider to fit Sidebar)
+-- Main Frame (Slimmer Width: 440)
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 480, 0.7, 0)
-MainFrame.Position = UDim2.new(0.5, -240, 0.15, 0)
+MainFrame.Size = UDim2.new(0, 440, 0.7, 0)
+MainFrame.Position = UDim2.new(0.5, -220, 0.15, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(13, 15, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -46,7 +47,7 @@ local Shadow = Instance.new("ImageLabel")
 Shadow.Name = "DropShadow"
 Shadow.BackgroundTransparency = 1
 Shadow.Position = UDim2.new(MainFrame.Position.X.Scale, MainFrame.Position.X.Offset - 15, MainFrame.Position.Y.Scale, MainFrame.Position.Y.Offset - 15)
-Shadow.Size = UDim2.new(0, 510, 0.7, 30)
+Shadow.Size = UDim2.new(0, 470, 0.7, 30)
 Shadow.Image = "rbxassetid://4731308628" 
 Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
 Shadow.ImageTransparency = 0.4
@@ -120,8 +121,9 @@ Divider.BorderSizePixel = 0
 Divider.Parent = Header
 
 -- ==================== SIDEBAR & TABS SYSTEM ====================
+-- Enlarged Sidebar to 150px
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 130, 1, -45)
+Sidebar.Size = UDim2.new(0, 150, 1, -45)
 Sidebar.Position = UDim2.new(0, 0, 0, 45)
 Sidebar.BackgroundColor3 = Color3.fromRGB(16, 20, 28)
 Sidebar.BorderSizePixel = 0
@@ -135,7 +137,7 @@ SidebarLine.BorderSizePixel = 0
 SidebarLine.Parent = Sidebar
 
 local SidebarLayout = Instance.new("UIListLayout")
-SidebarLayout.Padding = UDim.new(0, 5)
+SidebarLayout.Padding = UDim.new(0, 8)
 SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
 SidebarLayout.Parent = Sidebar
@@ -145,8 +147,8 @@ SidebarPadding.PaddingTop = UDim.new(0, 15)
 SidebarPadding.Parent = Sidebar
 
 local ContentContainer = Instance.new("Frame")
-ContentContainer.Size = UDim2.new(1, -130, 1, -45)
-ContentContainer.Position = UDim2.new(0, 130, 0, 45)
+ContentContainer.Size = UDim2.new(1, -150, 1, -45)
+ContentContainer.Position = UDim2.new(0, 150, 0, 45)
 ContentContainer.BackgroundTransparency = 1
 ContentContainer.Parent = MainFrame
 
@@ -154,14 +156,14 @@ local Tabs = {}
 local TabButtons = {}
 
 local function CreateTab(name, icon, isFirst)
-	-- Create Sidebar Button
+	-- Create Larger Sidebar Navbuttons
 	local TabBtn = Instance.new("TextButton")
-	TabBtn.Size = UDim2.new(0.85, 0, 0, 35)
+	TabBtn.Size = UDim2.new(0.9, 0, 0, 40)
 	TabBtn.BackgroundColor3 = isFirst and Color3.fromRGB(0, 225, 217) or Color3.fromRGB(25, 30, 40)
 	TabBtn.BackgroundTransparency = isFirst and 0.1 or 1
-	TabBtn.Text = " " .. icon .. "  " .. name
+	TabBtn.Text = "  " .. icon .. "   " .. name
 	TabBtn.TextColor3 = isFirst and Color3.fromRGB(13, 15, 20) or Color3.fromRGB(180, 190, 205)
-	TabBtn.TextSize = 14
+	TabBtn.TextSize = 15
 	TabBtn.Font = Enum.Font.GothamBold
 	TabBtn.TextXAlignment = Enum.TextXAlignment.Left
 	TabBtn.Parent = Sidebar
@@ -174,12 +176,13 @@ local function CreateTab(name, icon, isFirst)
 	BtnPadding.PaddingLeft = UDim.new(0, 10)
 	BtnPadding.Parent = TabBtn
 
-	-- Create Content Page
+	-- Create Content Page (VERTICAL SCROLLING ONLY)
 	local TabPage = Instance.new("ScrollingFrame")
 	TabPage.Size = UDim2.new(1, 0, 1, 0)
 	TabPage.BackgroundTransparency = 1
 	TabPage.ScrollBarThickness = 3
 	TabPage.ScrollBarImageColor3 = Color3.fromRGB(0, 225, 217)
+	TabPage.ScrollingDirection = Enum.ScrollingDirection.Y -- FIX: Strictly vertical scroll
 	TabPage.CanvasSize = UDim2.new(0, 0, 0, 0)
 	TabPage.Visible = isFirst
 	TabPage.Parent = ContentContainer
@@ -195,7 +198,7 @@ local function CreateTab(name, icon, isFirst)
 	PagePadding.PaddingBottom = UDim.new(0, 15)
 	PagePadding.Parent = TabPage
 
-	-- Auto Adjust Canvas Size
+	-- Auto Adjust Vertical Canvas Size
 	PageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		TabPage.CanvasSize = UDim2.new(0, 0, 0, PageLayout.AbsoluteContentSize.Y + 30)
 	end)
@@ -243,7 +246,7 @@ AddHomeText("SHARK V1", 28, Enum.Font.GothamBlack, Color3.fromRGB(0, 225, 217))
 AddHomeText("Developed by Sadur Rahman Alif", 14, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
 
 local InfoCard = Instance.new("Frame")
-InfoCard.Size = UDim2.new(0.9, 0, 0, 160)
+InfoCard.Size = UDim2.new(0.9, 0, 0, 200) -- Increased height to fit text properly
 InfoCard.BackgroundColor3 = Color3.fromRGB(18, 22, 30)
 InfoCard.BorderSizePixel = 0
 InfoCard.Parent = HomeTab
@@ -312,15 +315,15 @@ MakeDraggable(Header, MainFrame, Shadow)
 local isMinimized = false
 MinimizeBtn.MouseButton1Click:Connect(function()
 	isMinimized = not isMinimized
-	local targetSize = isMinimized and UDim2.new(0, 480, 0, 45) or UDim2.new(0, 480, 0.7, 0)
-	local shadowSize = isMinimized and UDim2.new(0, 510, 0, 75) or UDim2.new(0, 510, 0.7, 30)
+	local targetSize = isMinimized and UDim2.new(0, 440, 0, 45) or UDim2.new(0, 440, 0.7, 0)
+	local shadowSize = isMinimized and UDim2.new(0, 470, 0, 75) or UDim2.new(0, 470, 0.7, 30)
 	
 	TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = targetSize}):Play()
 	TweenService:Create(Shadow, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = shadowSize}):Play()
 end)
 
 CloseBtn.MouseButton1Click:Connect(function()
-	local t = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 480, 0, 0)})
+	local t = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 440, 0, 0)})
 	TweenService:Create(Shadow, TweenInfo.new(0.3), {ImageTransparency = 1}):Play()
 	t:Play()
 	t.Completed:Wait()
@@ -592,7 +595,6 @@ local originalLight = {}
 
 CreateToggle("Full Bright", false, VisualsTab, false, function(enabled)
 	if enabled then
-		-- Store Original Game Lighting Properties perfectly
 		originalLight = {
 			Brightness = Lighting.Brightness,
 			ClockTime = Lighting.ClockTime,
@@ -609,12 +611,10 @@ CreateToggle("Full Bright", false, VisualsTab, false, function(enabled)
 			Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
 		end)
 	else
-		-- Turn OFF logic
 		if fbConn then 
 			fbConn:Disconnect() 
 			fbConn = nil
 		end
-		-- RESTORE original lighting
 		for k, v in pairs(originalLight) do
 			pcall(function() Lighting[k] = v end)
 		end
@@ -774,4 +774,4 @@ CreateToggle("Free Cam", false, MovementTab, false, function(enabled)
 	end
 end)
 
-print("Shark V1 by Sadur Rahman Alif - UI Build Complete!")
+print("Shark V1 by Sadur Rahman Alif - Setup Complete!")
