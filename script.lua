@@ -1,10 +1,10 @@
 -- Features:
--- ESP (Players, Mobs, NPCs, All Entities)
+-- ESP (Players, Mobs, NPCs, Info Tags, Friend/Foe Detection)
 -- Full Bright
 -- Noclip
 -- Free Cam (Detached Camera, Locks Player, Mobile Friendly)
 -- Killaura
--- Clock Widget 
+-- Clock Widget (Game Time)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -23,23 +23,10 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Shadow Layer
-local Shadow = Instance.new("ImageLabel")
-Shadow.Name = "DropShadow"
-Shadow.BackgroundTransparency = 1
-Shadow.Position = UDim2.new(0.5, -170, 0.5, -215)
-Shadow.Size = UDim2.new(0, 340, 0, 430)
-Shadow.Image = "rbxassetid://4731308628" 
-Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-Shadow.ImageTransparency = 0.4
-Shadow.ScaleType = Enum.ScaleType.Slice
-Shadow.SliceCenter = Rect.new(35, 35, 265, 265)
-Shadow.Parent = ScreenGui
-
--- Main Frame
+-- Main Frame (Height set to exactly 70% of device screen)
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 310, 0, 400)
-MainFrame.Position = UDim2.new(0.5, -155, 0.5, -200)
+MainFrame.Size = UDim2.new(0, 310, 0.7, 0)
+MainFrame.Position = UDim2.new(0.5, -155, 0.15, 0) -- Centered (1 - 0.7) / 2 = 0.15
 MainFrame.BackgroundColor3 = Color3.fromRGB(13, 15, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -54,6 +41,19 @@ local MainStroke = Instance.new("UIStroke")
 MainStroke.Color = Color3.fromRGB(35, 45, 60)
 MainStroke.Thickness = 1.5
 MainStroke.Parent = MainFrame
+
+-- Shadow Layer (Adapts to 70% height scale)
+local Shadow = Instance.new("ImageLabel")
+Shadow.Name = "DropShadow"
+Shadow.BackgroundTransparency = 1
+Shadow.Position = UDim2.new(MainFrame.Position.X.Scale, MainFrame.Position.X.Offset - 15, MainFrame.Position.Y.Scale, MainFrame.Position.Y.Offset - 15)
+Shadow.Size = UDim2.new(0, 340, 0.7, 30)
+Shadow.Image = "rbxassetid://4731308628" 
+Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+Shadow.ImageTransparency = 0.4
+Shadow.ScaleType = Enum.ScaleType.Slice
+Shadow.SliceCenter = Rect.new(35, 35, 265, 265)
+Shadow.Parent = ScreenGui
 
 -- Topbar Header
 local Header = Instance.new("Frame")
@@ -116,8 +116,7 @@ Body.Position = UDim2.new(0, 0, 0, 45)
 Body.BackgroundTransparency = 1
 Body.ScrollBarThickness = 3
 Body.ScrollBarImageColor3 = Color3.fromRGB(0, 225, 217)
-Body.CanvasSize = UDim2.new(0, 0, 0, 0) -- FIX: Removes massive default empty scrolling space
-Body.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Body.CanvasSize = UDim2.new(0, 0, 0, 0)
 Body.Active = true
 Body.Parent = MainFrame
 
@@ -131,6 +130,11 @@ local BodyPadding = Instance.new("UIPadding")
 BodyPadding.PaddingTop = UDim.new(0, 12)
 BodyPadding.PaddingBottom = UDim.new(0, 12)
 BodyPadding.Parent = Body
+
+-- FIX: Accurate Custom Scroll Tracking
+BodyLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	Body.CanvasSize = UDim2.new(0, 0, 0, BodyLayout.AbsoluteContentSize.Y + 24)
+end)
 
 -- ==================== DRAG LOGIC ====================
 local function MakeDraggable(dragArea, moveTarget, shadowTarget)
@@ -174,14 +178,13 @@ MakeDraggable(Header, MainFrame, Shadow)
 local isMinimized = false
 MinimizeBtn.MouseButton1Click:Connect(function()
 	isMinimized = not isMinimized
-	local targetSize = isMinimized and UDim2.new(0, 310, 0, 45) or UDim2.new(0, 310, 0, 400)
-	local shadowSize = isMinimized and UDim2.new(0, 340, 0, 75) or UDim2.new(0, 340, 0, 430)
+	local targetSize = isMinimized and UDim2.new(0, 310, 0, 45) or UDim2.new(0, 310, 0.7, 0)
+	local shadowSize = isMinimized and UDim2.new(0, 340, 0, 75) or UDim2.new(0, 340, 0.7, 30)
 	
 	TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = targetSize}):Play()
 	TweenService:Create(Shadow, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = shadowSize}):Play()
 end)
 
--- FIX: Removed GroupTransparency which was erroring and breaking the close script
 CloseBtn.MouseButton1Click:Connect(function()
 	local t = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 310, 0, 0)})
 	TweenService:Create(Shadow, TweenInfo.new(0.3), {ImageTransparency = 1}):Play()
@@ -280,7 +283,6 @@ local function CreateToggle(text, defaultState, callback)
 	return ToggleFrame
 end
 
--- ==================== AUTO CLEANUP ====================
 ScreenGui.Destroying:Connect(function()
 	for _, callback in pairs(featureCallbacks) do
 		callback(false) 
@@ -289,9 +291,40 @@ end)
 
 -- ==================== FEATURES ====================
 
--- Universal Entity ESP
+-- UPGRADED ENTITY ESP (Colors, HP, Damage)
 local espEnabled = false
-local highlights = {}
+local espObjects = {}
+
+local function getEntityStats(obj)
+	local isFriendly = false
+	local plr = Players:GetPlayerFromCharacter(obj)
+	
+	-- Determine Friend or Foe
+	if plr and plr.Team and player.Team and plr.Team == player.Team then
+		isFriendly = true
+	end
+	local color = isFriendly and Color3.fromRGB(0, 180, 255) or Color3.fromRGB(255, 50, 50)
+	
+	-- Get Health
+	local hum = obj:FindFirstChildOfClass("Humanoid")
+	local hp = hum and math.floor(hum.Health) or 0
+	local maxHp = hum and math.floor(hum.MaxHealth) or 0
+	
+	-- Get Damage / Weapon
+	local weaponText = "Unarmed"
+	local tool = obj:FindFirstChildOfClass("Tool")
+	if tool then
+		local dmgVal = tool:FindFirstChild("Damage") or tool:FindFirstChild("HitDamage")
+		if dmgVal and (dmgVal:IsA("NumberValue") or dmgVal:IsA("IntValue")) then
+			weaponText = "DMG: " .. tostring(dmgVal.Value)
+		else
+			weaponText = "WEP: " .. tool.Name
+		end
+	end
+	
+	local infoString = string.format("HP: %d/%d | %s", hp, maxHp, weaponText)
+	return color, infoString
+end
 
 CreateToggle("Entity ESP", false, function(enabled)
 	espEnabled = enabled
@@ -300,38 +333,69 @@ CreateToggle("Entity ESP", false, function(enabled)
 			while espEnabled do
 				for _, obj in ipairs(workspace:GetDescendants()) do
 					if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj ~= player.Character then
-						if not highlights[obj] then
+						
+						local color, infoText = getEntityStats(obj)
+						
+						if not espObjects[obj] then
 							local hl = Instance.new("Highlight")
 							hl.Adornee = obj
-							if Players:GetPlayerFromCharacter(obj) then
-								hl.FillColor = Color3.fromRGB(255, 60, 60)
-							else
-								hl.FillColor = Color3.fromRGB(0, 225, 217)
-							end
+							hl.FillColor = color
 							hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-							hl.FillTransparency = 0.4
+							hl.FillTransparency = 0.5
 							hl.OutlineTransparency = 0
 							hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 							hl.Parent = obj
-							highlights[obj] = hl
+							
+							local bg = Instance.new("BillboardGui")
+							bg.Adornee = obj:FindFirstChild("Head") or obj.PrimaryPart or obj
+							bg.Size = UDim2.new(0, 200, 0, 40)
+							bg.StudsOffset = Vector3.new(0, 2.5, 0)
+							bg.AlwaysOnTop = true
+							bg.Parent = obj
+							
+							local txt = Instance.new("TextLabel")
+							txt.Size = UDim2.new(1, 0, 1, 0)
+							txt.BackgroundTransparency = 1
+							txt.Text = infoText
+							txt.TextColor3 = color
+							txt.TextSize = 13
+							txt.Font = Enum.Font.GothamBold
+							
+							local stroke = Instance.new("TextStroke")
+							stroke.Color = Color3.fromRGB(0,0,0)
+							stroke.Thickness = 1
+							stroke.Transparency = 0
+							stroke.Parent = txt
+							
+							txt.Parent = bg
+							
+							espObjects[obj] = { Highlight = hl, Billboard = bg, TextLabel = txt }
+						else
+							-- Update existing ESP
+							espObjects[obj].Highlight.FillColor = color
+							espObjects[obj].TextLabel.TextColor3 = color
+							espObjects[obj].TextLabel.Text = infoText
 						end
 					end
 				end
 				
-				for obj, hl in pairs(highlights) do
+				-- Cleanup Dead/Removed Entities
+				for obj, uiData in pairs(espObjects) do
 					if not obj or not obj.Parent or not obj:FindFirstChild("Humanoid") or obj:FindFirstChild("Humanoid").Health <= 0 then
-						hl:Destroy()
-						highlights[obj] = nil
+						uiData.Highlight:Destroy()
+						uiData.Billboard:Destroy()
+						espObjects[obj] = nil
 					end
 				end
-				task.wait(1.5)
+				task.wait(0.5) -- Faster update for health changes
 			end
 		end)
 	else
-		for obj, hl in pairs(highlights) do
-			if hl then hl:Destroy() end
+		for obj, uiData in pairs(espObjects) do
+			if uiData.Highlight then uiData.Highlight:Destroy() end
+			if uiData.Billboard then uiData.Billboard:Destroy() end
 		end
-		table.clear(highlights)
+		table.clear(espObjects)
 	end
 end)
 
@@ -438,12 +502,10 @@ local function buildMobileControls()
 		end)
 	end
 
-	-- D-Pad (Left Side)
 	createBtn("W", UDim2.new(0, 85, 1, -190), "F")
 	createBtn("S", UDim2.new(0, 85, 1, -70), "B")
 	createBtn("A", UDim2.new(0, 20, 1, -130), "L")
 	createBtn("D", UDim2.new(0, 150, 1, -130), "R")
-	-- Elevations (Right Side)
 	createBtn("UP", UDim2.new(1, -100, 1, -190), "U")
 	createBtn("DN", UDim2.new(1, -100, 1, -70), "D")
 end
@@ -454,14 +516,12 @@ CreateToggle("Free Cam", false, function(enabled)
 		fcCFrame = camera.CFrame
 		pitch, yaw, _ = fcCFrame:ToEulerAnglesYXZ()
 		
-		-- FIX: Lock the player entirely by Anchoring their RootPart
 		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
 			player.Character.HumanoidRootPart.Anchored = true
 		end
 		
 		buildMobileControls()
 		
-		-- Handles Panning (Right Click for PC, Swiping anywhere on screen for Mobile)
 		fcInput = UserInputService.InputChanged:Connect(function(input, gameProcessed)
 			if gameProcessed then return end 
 			
@@ -479,7 +539,6 @@ CreateToggle("Free Cam", false, function(enabled)
 			end
 		end)
 
-		-- Handles Camera Movement
 		fcConn = RunService.RenderStepped:Connect(function(dt)
 			local moveVector = Vector3.new()
 			if UserInputService:IsKeyDown(Enum.KeyCode.W) or mobileMoveFlags.F then moveVector += Vector3.new(0, 0, -1) end
@@ -489,7 +548,6 @@ CreateToggle("Free Cam", false, function(enabled)
 			if UserInputService:IsKeyDown(Enum.KeyCode.Space) or mobileMoveFlags.U then moveVector += Vector3.new(0, 1, 0) end
 			if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or mobileMoveFlags.D then moveVector += Vector3.new(0, -1, 0) end
 			
-			-- Move at speed of 50 studs/sec
 			fcCFrame = fcCFrame * CFrame.new(moveVector * (50 * dt))
 			camera.CFrame = fcCFrame
 		end)
@@ -506,7 +564,6 @@ CreateToggle("Free Cam", false, function(enabled)
 			camera.CameraSubject = player.Character.Humanoid
 		end
 		
-		-- FIX: Unlock the player when Freecam is disabled
 		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
 			player.Character.HumanoidRootPart.Anchored = false
 		end
@@ -535,7 +592,7 @@ CreateToggle("Killaura", false, function(enabled)
 	end
 end)
 
--- CLOCK WIDGET 
+-- CLOCK WIDGET (Reads In-Game Lighting.ClockTime)
 local clockFrame = nil
 local clockUpdate = nil
 
@@ -576,15 +633,17 @@ CreateToggle("Clock Widget", false, function(enabled)
 		iconLabel.Font = Enum.Font.GothamBold
 		iconLabel.Parent = clockFrame
 
-		-- Allow user to drag widget
 		MakeDraggable(clockFrame, clockFrame, nil)
 
 		clockUpdate = RunService.Heartbeat:Connect(function()
-			local t = os.date("*t")
-			timeLabel.Text = string.format("%02d:%02d", t.hour, t.min)
+			-- FIX: Use exact Roblox Game Time instead of local Real Life time
+			local gameTime = Lighting.ClockTime
+			local h = math.floor(gameTime)
+			local m = math.floor((gameTime - h) * 60)
+			
+			timeLabel.Text = string.format("%02d:%02d", h, m)
 
-			local ct = Lighting.ClockTime % 24
-			if ct >= 6 and ct <= 18 then
+			if gameTime >= 6 and gameTime <= 18 then
 				iconLabel.Text = "☀️"
 				iconLabel.TextColor3 = Color3.fromRGB(255, 230, 100)
 			else
@@ -607,4 +666,4 @@ CreateToggle("Clock Widget", false, function(enabled)
 	end
 end)
 
-print("Shark V1 (Bugs Resolved)")
+print("Shark V1 (Final Upgrade)")
