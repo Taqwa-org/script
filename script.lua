@@ -1,5 +1,5 @@
 -- Features:
--- ESP (Players, Mobs, NPCs, Info Tags, Friend/Foe Detection, Speed, Distance, Damage)
+-- ESP (Dropdown Menu, Dynamic Text Scaling, Toggable Info)
 -- Full Bright
 -- Noclip
 -- Free Cam (Detached Camera, Locks Player, Mobile Friendly)
@@ -204,19 +204,22 @@ end)
 -- ==================== TOGGLE CREATOR ====================
 local featureCallbacks = {} 
 
-local function CreateToggle(text, defaultState, callback)
+-- Updated to accept a "parent" and an "isSub" argument for smaller dropdown toggles
+local function CreateToggle(text, defaultState, parent, isSub, callback)
 	local ToggleFrame = Instance.new("Frame")
-	ToggleFrame.Size = UDim2.new(0.92, 0, 0, 48)
-	ToggleFrame.BackgroundColor3 = Color3.fromRGB(22, 26, 35)
+	local height = isSub and 38 or 48
+	local width = isSub and 0.85 or 0.92
+	ToggleFrame.Size = UDim2.new(width, 0, 0, height)
+	ToggleFrame.BackgroundColor3 = isSub and Color3.fromRGB(18, 20, 26) or Color3.fromRGB(22, 26, 35)
 	ToggleFrame.BorderSizePixel = 0
-	ToggleFrame.Parent = Body
+	ToggleFrame.Parent = parent
 
 	local ToggleCorner = Instance.new("UICorner")
 	ToggleCorner.CornerRadius = UDim.new(0, 10)
 	ToggleCorner.Parent = ToggleFrame
 
 	local ToggleStroke = Instance.new("UIStroke")
-	ToggleStroke.Color = Color3.fromRGB(40, 50, 65)
+	ToggleStroke.Color = isSub and Color3.fromRGB(35, 42, 55) or Color3.fromRGB(40, 50, 65)
 	ToggleStroke.Thickness = 1
 	ToggleStroke.Parent = ToggleFrame
 
@@ -226,14 +229,16 @@ local function CreateToggle(text, defaultState, callback)
 	Label.BackgroundTransparency = 1
 	Label.Text = text
 	Label.TextColor3 = Color3.fromRGB(220, 225, 240)
-	Label.TextSize = 14
+	Label.TextSize = isSub and 12 or 14
 	Label.Font = Enum.Font.GothamMedium
 	Label.TextXAlignment = Enum.TextXAlignment.Left
 	Label.Parent = ToggleFrame
 
 	local SwitchBg = Instance.new("Frame")
-	SwitchBg.Size = UDim2.new(0, 44, 0, 24)
-	SwitchBg.Position = UDim2.new(1, -55, 0.5, -12)
+	local bgW = isSub and 36 or 44
+	local bgH = isSub and 18 or 24
+	SwitchBg.Size = UDim2.new(0, bgW, 0, bgH)
+	SwitchBg.Position = UDim2.new(1, isSub and -45 or -55, 0.5, -(bgH/2))
 	SwitchBg.BackgroundColor3 = Color3.fromRGB(35, 40, 50)
 	SwitchBg.Parent = ToggleFrame
 
@@ -242,8 +247,9 @@ local function CreateToggle(text, defaultState, callback)
 	SwitchCorner.Parent = SwitchBg
 
 	local Knob = Instance.new("Frame")
-	Knob.Size = UDim2.new(0, 18, 0, 18)
-	Knob.Position = UDim2.new(0, 3, 0.5, -9)
+	local kS = isSub and 14 or 18
+	Knob.Size = UDim2.new(0, kS, 0, kS)
+	Knob.Position = UDim2.new(0, 2, 0.5, -(kS/2))
 	Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	Knob.Parent = SwitchBg
 
@@ -263,24 +269,24 @@ local function CreateToggle(text, defaultState, callback)
 	local function UpdateVisual()
 		if state then
 			TweenService:Create(SwitchBg, tweenInfo, {BackgroundColor3 = Color3.fromRGB(0, 225, 217)}):Play()
-			TweenService:Create(Knob, tweenInfo, {Position = UDim2.new(1, -21, 0.5, -9)}):Play()
+			TweenService:Create(Knob, tweenInfo, {Position = UDim2.new(1, -(kS + 2), 0.5, -(kS/2))}):Play()
 			TweenService:Create(Label, tweenInfo, {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
 			TweenService:Create(ToggleStroke, tweenInfo, {Color = Color3.fromRGB(0, 120, 150)}):Play()
 		else
 			TweenService:Create(SwitchBg, tweenInfo, {BackgroundColor3 = Color3.fromRGB(35, 40, 50)}):Play()
-			TweenService:Create(Knob, tweenInfo, {Position = UDim2.new(0, 3, 0.5, -9)}):Play()
+			TweenService:Create(Knob, tweenInfo, {Position = UDim2.new(0, 2, 0.5, -(kS/2))}):Play()
 			TweenService:Create(Label, tweenInfo, {TextColor3 = Color3.fromRGB(180, 190, 205)}):Play()
-			TweenService:Create(ToggleStroke, tweenInfo, {Color = Color3.fromRGB(40, 50, 65)}):Play()
+			TweenService:Create(ToggleStroke, tweenInfo, {Color = isSub and Color3.fromRGB(35, 42, 55) or Color3.fromRGB(40, 50, 65)}):Play()
 		end
 	end
 
 	ClickArea.MouseButton1Click:Connect(function()
 		state = not state
 		UpdateVisual()
-		local pulse = TweenService:Create(ToggleFrame, TweenInfo.new(0.1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = UDim2.new(0.9, 0, 0, 46)})
+		local pulse = TweenService:Create(ToggleFrame, TweenInfo.new(0.1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = UDim2.new(width - 0.02, 0, 0, height - 2)})
 		pulse:Play()
 		pulse.Completed:Wait()
-		TweenService:Create(ToggleFrame, TweenInfo.new(0.2, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Size = UDim2.new(0.92, 0, 0, 48)}):Play()
+		TweenService:Create(ToggleFrame, TweenInfo.new(0.2, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Size = UDim2.new(width, 0, 0, height)}):Play()
 		callback(state)
 	end)
 
@@ -297,12 +303,29 @@ ScreenGui.Destroying:Connect(function()
 	end
 end)
 
--- ==================== FEATURES ====================
+-- ==================== ESP SYSTEM WITH DROPDOWN ====================
+local EspContainer = Instance.new("Frame")
+EspContainer.Size = UDim2.new(1, 0, 0, 48) -- Starts Collapsed
+EspContainer.BackgroundTransparency = 1
+EspContainer.ClipsDescendants = true
+EspContainer.Parent = Body
 
--- UPGRADED, MULTI-LINE ESP (Health, WalkSpeed, Damage, Distance, Names)
-local espEnabled = false
+local EspLayout = Instance.new("UIListLayout")
+EspLayout.Padding = UDim.new(0, 8)
+EspLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+EspLayout.SortOrder = Enum.SortOrder.LayoutOrder
+EspLayout.Parent = EspContainer
 
-local function getEntityStats(obj)
+-- ESP Settings Data
+local espConfig = {
+	Enabled = false,
+	NameDist = true,
+	HealthSpeed = true,
+	WeaponDmg = true
+}
+
+-- Formats exactly what you selected in the sub-menus
+local function getEntityStats(obj, dist)
 	local isFriendly = false
 	local plr = Players:GetPlayerFromCharacter(obj)
 	
@@ -311,35 +334,35 @@ local function getEntityStats(obj)
 	end
 	local color = isFriendly and Color3.fromRGB(0, 180, 255) or Color3.fromRGB(255, 50, 50)
 	
-	-- Name & Distance
-	local dist = 0
-	local targetRoot = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
-	local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if targetRoot and myRoot then
-		dist = math.floor((myRoot.Position - targetRoot.Position).Magnitude)
+	local lines = {}
+	
+	if espConfig.NameDist then
+		table.insert(lines, string.format("[%s] %ds", obj.Name, dist))
 	end
 	
-	-- Health & Speed
-	local hum = obj:FindFirstChildOfClass("Humanoid")
-	local hp = hum and math.floor(hum.Health) or 0
-	local maxHp = hum and math.floor(hum.MaxHealth) or 0
-	local speed = hum and math.floor(hum.WalkSpeed) or 0
+	if espConfig.HealthSpeed then
+		local hum = obj:FindFirstChildOfClass("Humanoid")
+		local hp = hum and math.floor(hum.Health) or 0
+		local maxHp = hum and math.floor(hum.MaxHealth) or 0
+		local speed = hum and math.floor(hum.WalkSpeed) or 0
+		table.insert(lines, string.format("HP: %d/%d | SPD: %d", hp, maxHp, speed))
+	end
 	
-	-- Weapon & Damage Check
-	local weaponText = "Unarmed"
-	local tool = obj:FindFirstChildOfClass("Tool")
-	if tool then
-		local dmgVal = tool:FindFirstChild("Damage") or tool:FindFirstChild("HitDamage")
-		if dmgVal and (dmgVal:IsA("NumberValue") or dmgVal:IsA("IntValue")) then
-			weaponText = string.format("WEP: %s (DMG: %s)", tool.Name, tostring(dmgVal.Value))
-		else
-			weaponText = "WEP: " .. tool.Name
+	if espConfig.WeaponDmg then
+		local weaponText = "Unarmed"
+		local tool = obj:FindFirstChildOfClass("Tool")
+		if tool then
+			local dmgVal = tool:FindFirstChild("Damage") or tool:FindFirstChild("HitDamage")
+			if dmgVal and (dmgVal:IsA("NumberValue") or dmgVal:IsA("IntValue")) then
+				weaponText = string.format("WEP: %s (DMG: %s)", tool.Name, tostring(dmgVal.Value))
+			else
+				weaponText = "WEP: " .. tool.Name
+			end
 		end
+		table.insert(lines, weaponText)
 	end
 	
-	-- Formats text onto 3 clean lines using "\n"
-	local infoText = string.format("[%s] %ds\nHP: %d/%d | SPD: %d\n%s", obj.Name, dist, hp, maxHp, speed, weaponText)
-	return color, infoText
+	return color, table.concat(lines, "\n")
 end
 
 local function cleanAllESP()
@@ -350,95 +373,134 @@ local function cleanAllESP()
 	end
 end
 
-CreateToggle("Entity ESP", false, function(enabled)
-	espEnabled = enabled
+-- Create the Toggles inside the ESP Container
+local espLoopRunning = false
+
+CreateToggle("Entity ESP", false, EspContainer, false, function(enabled)
+	espConfig.Enabled = enabled
+	
 	if enabled then
-		task.spawn(function()
-			while espEnabled do
-				local success, err = pcall(function()
-					for _, obj in ipairs(workspace:GetDescendants()) do
-						if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and obj ~= player.Character then
-							local hum = obj:FindFirstChildOfClass("Humanoid")
-							
-							if hum and hum.Health > 0 then
-								local color, infoText = getEntityStats(obj)
-								local root = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
+		-- Drops the menu down to reveal the sub-toggles
+		TweenService:Create(EspContainer, TweenInfo.new(0.4, Enum.EasingStyle.Quint), {Size = UDim2.new(1, 0, 0, 186)}):Play()
+		
+		if not espLoopRunning then
+			espLoopRunning = true
+			task.spawn(function()
+				while espConfig.Enabled do
+					local success, err = pcall(function()
+						for _, obj in ipairs(workspace:GetDescendants()) do
+							if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and obj ~= player.Character then
+								local hum = obj:FindFirstChildOfClass("Humanoid")
 								
-								if root then
-									local hl = obj:FindFirstChild("SharkV1_Highlight")
-									local bg = obj:FindFirstChild("SharkV1_Billboard")
+								if hum and hum.Health > 0 then
+									local root = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
+									local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 									
-									if not hl then
-										hl = Instance.new("Highlight")
-										hl.Name = "SharkV1_Highlight"
-										hl.Adornee = obj
-										hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-										hl.FillTransparency = 0.5
-										hl.OutlineTransparency = 0
-										hl.Parent = obj
+									-- Distance Calculator
+									local dist = 0
+									if root and myRoot then
+										dist = math.floor((myRoot.Position - root.Position).Magnitude)
 									end
 									
-									if not bg then
-										bg = Instance.new("BillboardGui")
-										bg.Name = "SharkV1_Billboard"
-										bg.Adornee = root
+									if root then
+										local hl = obj:FindFirstChild("SharkV1_Highlight")
+										local bg = obj:FindFirstChild("SharkV1_Billboard")
 										
-										-- FIX: Increased height to 65 for 3 lines of text
-										bg.Size = UDim2.new(0, 200, 0, 65) 
-										bg.StudsOffsetWorldSpace = Vector3.new(0, 3.5, 0) 
-										bg.AlwaysOnTop = true
-										bg.Parent = obj
+										if not hl then
+											hl = Instance.new("Highlight")
+											hl.Name = "SharkV1_Highlight"
+											hl.Adornee = obj
+											hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+											hl.FillTransparency = 0.5
+											hl.OutlineTransparency = 0
+											hl.Parent = obj
+										end
 										
-										local txt = Instance.new("TextLabel")
-										txt.Name = "InfoText"
-										txt.Size = UDim2.new(1, 0, 1, 0)
-										txt.BackgroundTransparency = 1
-										txt.TextSize = 13
-										txt.TextWrapped = true
-										txt.TextYAlignment = Enum.TextYAlignment.Bottom
-										txt.Font = Enum.Font.GothamBold
-										txt.Parent = bg
+										if not bg then
+											bg = Instance.new("BillboardGui")
+											bg.Name = "SharkV1_Billboard"
+											bg.Adornee = root
+											bg.Size = UDim2.new(0, 300, 0, 90) 
+											bg.StudsOffsetWorldSpace = Vector3.new(0, 3.5, 0) 
+											bg.AlwaysOnTop = true
+											bg.Parent = obj
+											
+											local txt = Instance.new("TextLabel")
+											txt.Name = "InfoText"
+											txt.Size = UDim2.new(1, 0, 1, 0)
+											txt.BackgroundTransparency = 1
+											txt.TextWrapped = true
+											txt.TextYAlignment = Enum.TextYAlignment.Bottom
+											txt.Font = Enum.Font.GothamBold
+											txt.Parent = bg
+											
+											local stroke = Instance.new("UIStroke")
+											stroke.Color = Color3.fromRGB(0,0,0)
+											stroke.Thickness = 1
+											stroke.Parent = txt
+										end
 										
-										local stroke = Instance.new("UIStroke")
-										stroke.Color = Color3.fromRGB(0,0,0)
-										stroke.Thickness = 1
-										stroke.Parent = txt
+										-- Get formatting
+										local color, infoText = getEntityStats(obj, dist)
+										
+										-- UPDATE VISUALS
+										hl.FillColor = color
+										hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+										
+										local txt = bg:FindFirstChild("InfoText")
+										if txt then
+											if infoText == "" then
+												txt.Visible = false
+											else
+												txt.Visible = true
+												txt.TextColor3 = color
+												txt.Text = infoText
+												
+												-- ===========================================
+												-- MAGIC SCALING MATH: (Close = Small | Far = Big)
+												-- Limits minimum size to 11 and maximum to 26.
+												-- Stops growing bigger after 150 studs.
+												-- ===========================================
+												local minSize = 11
+												local maxSize = 26
+												local dynSize = math.floor(minSize + ((maxSize - minSize) * math.clamp(dist / 150, 0, 1)))
+												
+												txt.TextSize = dynSize
+											end
+										end
 									end
-									
-									-- Update properties dynamically
-									hl.FillColor = color
-									hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-									
-									local txt = bg:FindFirstChild("InfoText")
-									if txt then
-										txt.TextColor3 = color
-										txt.Text = infoText
-									end
+								elseif hum and hum.Health <= 0 then
+									if obj:FindFirstChild("SharkV1_Highlight") then obj:FindFirstChild("SharkV1_Highlight"):Destroy() end
+									if obj:FindFirstChild("SharkV1_Billboard") then obj:FindFirstChild("SharkV1_Billboard"):Destroy() end
 								end
-							elseif hum and hum.Health <= 0 then
-								if obj:FindFirstChild("SharkV1_Highlight") then obj:FindFirstChild("SharkV1_Highlight"):Destroy() end
-								if obj:FindFirstChild("SharkV1_Billboard") then obj:FindFirstChild("SharkV1_Billboard"):Destroy() end
 							end
 						end
-					end
-				end)
-				
-				if not success then warn("ESP Loop Error: ", err) end
-				task.wait(0.2) -- Faster update time so distance tracking is super smooth
-			end
-		end)
+					end)
+					
+					if not success then warn("ESP Loop Error: ", err) end
+					task.wait(0.2)
+				end
+				espLoopRunning = false
+			end)
+		end
 	else
+		-- Closes the menu
+		TweenService:Create(EspContainer, TweenInfo.new(0.4, Enum.EasingStyle.Quint), {Size = UDim2.new(1, 0, 0, 48)}):Play()
 		cleanAllESP()
 	end
 end)
 
--- Full Bright
-local fbConn = nil
-local originalLight = {Brightness=Lighting.Brightness, ClockTime=Lighting.ClockTime, GlobalShadows=Lighting.GlobalShadows, Ambient=Lighting.Ambient, OutdoorAmbient=Lighting.OutdoorAmbient}
+-- Create Sub Toggles inside the Dropdown
+CreateToggle("Show Name & Distance", true, EspContainer, true, function(enabled) espConfig.NameDist = enabled end)
+CreateToggle("Show Health & Speed", true, EspContainer, true, function(enabled) espConfig.HealthSpeed = enabled end)
+CreateToggle("Show Weapon & Damage", true, EspContainer, true, function(enabled) espConfig.WeaponDmg = enabled end)
 
-CreateToggle("Full Bright", false, function(enabled)
+
+-- ==================== OTHER FEATURES ====================
+
+CreateToggle("Full Bright", false, Body, false, function(enabled)
 	if enabled then
-		fbConn = RunService.RenderStepped:Connect(function()
+		_G.fbConn = RunService.RenderStepped:Connect(function()
 			Lighting.Brightness = 2
 			Lighting.ClockTime = 14
 			Lighting.GlobalShadows = false
@@ -446,16 +508,14 @@ CreateToggle("Full Bright", false, function(enabled)
 			Lighting.OutdoorAmbient = Color3.fromRGB(255,255,255)
 		end)
 	else
-		if fbConn then fbConn:Disconnect() end
-		for k,v in pairs(originalLight) do Lighting[k] = v end
+		if _G.fbConn then _G.fbConn:Disconnect() end
 	end
 end)
 
--- Noclip
 local noclipConn = nil
 local noclipRespawn = nil
 
-CreateToggle("Noclip", false, function(enabled)
+CreateToggle("Noclip", false, Body, false, function(enabled)
 	if enabled then
 		noclipConn = RunService.Stepped:Connect(function()
 			if player.Character then
@@ -483,7 +543,6 @@ CreateToggle("Noclip", false, function(enabled)
 	end
 end)
 
--- ==================== MOBILE COMPATIBLE FREECAM ====================
 local fcConn, fcInput
 local fcCFrame = camera.CFrame
 local pitch, yaw = 0, 0
@@ -543,7 +602,7 @@ local function buildMobileControls()
 	createBtn("DN", UDim2.new(1, -100, 1, -70), "D")
 end
 
-CreateToggle("Free Cam", false, function(enabled)
+CreateToggle("Free Cam", false, Body, false, function(enabled)
 	if enabled then
 		camera.CameraType = Enum.CameraType.Scriptable
 		fcCFrame = camera.CFrame
@@ -603,4 +662,4 @@ CreateToggle("Free Cam", false, function(enabled)
 	end
 end)
 
-print("Shark V1 - Load Success")
+print("Shark V1 - Ultimate Version Enabled")
